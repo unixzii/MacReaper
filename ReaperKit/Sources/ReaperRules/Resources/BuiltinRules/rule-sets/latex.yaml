@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: latex
+title: LaTeX
+description: LaTeX auxiliary files next to their .tex source.
+
+categories:
+  aux:
+    title: LaTeX auxiliary files
+    safety: safe
+
+rules:
+  # paper.aux is claimed only if paper.tex sits next to it, so an unrelated notes.log
+  # is never touched.
+  - id: latex.aux
+    description: Auxiliary files whose .tex source sits next to them.
+    when:
+      kind: file
+      name: ["*.aux", "*.log", "*.toc", "*.out", "*.bbl", "*.blg", "*.fls", "*.fdb_latexmk", "*.synctex.gz"]
+      capture: '^(?<stem>.+?)\.(aux|log|toc|out|bbl|blg|fls|fdb_latexmk|synctex\.gz)$'
+      sibling: "{stem}.tex"
+    action:
+      claim: aux

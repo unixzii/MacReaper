@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: macos
+title: macOS
+description: User-level macOS leftovers.
+
+categories:
+  diagnostic-reports:
+    title: Old crash and diagnostic reports
+    safety: safe
+  old-installers:
+    title: Old installers in Downloads
+    detail: Disk images and packages not modified for 60 days.
+    safety: review
+  ios-backup:
+    title: iPhone and iPad backup
+    detail: May be the only copy of a device's data.
+    safety: dangerous
+  jetbrains-old-caches:
+    title: Caches of old JetBrains IDE versions
+    safety: safe
+
+rules:
+  - id: macos.diagnostic-reports
+    description: Diagnostic reports older than 30 days.
+    when:
+      kind: file
+      path: ~/Library/Logs/DiagnosticReports/*
+      olderThan: 30d
+    action:
+      claim: diagnostic-reports
+
+  - id: macos.old-installers
+    description: Disk images, packages and Xcode installers in Downloads older than 60 days.
+    when:
+      kind: file
+      name: ["*.dmg", "*.pkg", "*.xip"]
+      path: ~/Downloads/*
+      olderThan: 60d
+    action:
+      claim: old-installers
+
+  - id: macos.ios-backups
+    description: Each device backup made by Finder.
+    when:
+      path: ~/Library/Application Support/MobileSync/Backup/*
+    action:
+      claim: ios-backup
+
+  # "IntelliJIdea2024.3" is superseded by "IntelliJIdea2025.2"; a lone "PyCharm2025.1" is kept.
+  - id: macos.jetbrains-old-caches
+    description: Caches of JetBrains IDE versions superseded by a newer version of the same IDE.
+    when:
+      path: ~/Library/Caches/JetBrains/*
+      check:
+        name: version.superseded
+        args: { pattern: '^(?<group>[A-Za-z]+)(?<version>\d{4}\.\d+)$' }
+    action:
+      claim: jetbrains-old-caches

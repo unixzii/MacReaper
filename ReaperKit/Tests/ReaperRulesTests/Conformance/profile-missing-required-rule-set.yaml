@@ -1,0 +1,59 @@
+description: "A profile loads everything its rule sets require."
+expect:
+  code: profile-missing-required-rule-set
+  file: profiles/p.yaml
+  line: 6
+files:
+  profiles/p.yaml: |
+    format: 1
+    id: p
+    title: P
+    roots: ["~"]
+    maxDepth: 3
+    ruleSets: [t]
+    preselect: [safe]
+  rule-sets/o.yaml: |
+    format: 1
+    id: o
+    title: O
+    description: Other rule set.
+
+    categories:
+      oc:
+        title: OC
+        safety: safe
+
+    rules:
+      - id: o.project
+        when:
+          contains: y
+        action:
+          pushScope: project
+  rule-sets/t.yaml: |
+    format: 1
+    id: t
+    title: T
+    description: Test rule set.
+    requires: [o]
+
+    categories:
+      c:
+        title: C
+        safety: review
+
+    rules:
+      - id: t.project
+        when:
+          contains: x
+        action:
+          pushScope:
+            name: project
+            set:
+              project: "{name}"
+
+      - id: t.claim
+        when:
+          name: a
+          scope: { name: project, distance: 1 }
+        action:
+          claim: c

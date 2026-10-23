@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: unity
+title: Unity
+description: Unity project caches.
+
+categories:
+  library:
+    title: Unity Library cache
+    detail: Re-imported on next open; large projects can take a long time.
+    safety: review
+  temp:
+    title: Unity temp and logs
+    safety: safe
+
+rules:
+  # "Library" is far too common a name to match without strong project evidence.
+  - id: unity.project
+    description: A directory with Assets and ProjectSettings/ProjectVersion.txt.
+    when:
+      contains: [Assets, ProjectSettings/ProjectVersion.txt]
+    action:
+      pushScope:
+        name: project
+        set:
+          project: "{name}"
+
+  - id: unity.library
+    description: Library directly inside a Unity project.
+    when:
+      name: Library
+      scope: { name: project, distance: 1 }
+    action:
+      claim: library
+
+  - id: unity.temp
+    description: Temp, Logs and obj directly inside a Unity project.
+    when:
+      name: [Temp, Logs, obj]
+      scope: { name: project, distance: 1 }
+    action:
+      claim: temp

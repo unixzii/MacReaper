@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: package-caches
+title: Package manager caches
+description: Global download caches and stores of package managers.
+
+categories:
+  download-cache:
+    title: Package manager cache
+    detail: Downloaded archives; fetched again when needed.
+    safety: safe
+  store:
+    title: Package store
+    detail: Shared or hard-linked stores that projects may rely on. Prefer the tool's own prune command.
+    safety: review
+
+rules:
+  - id: package-caches.download-caches
+    description: Download caches of Homebrew, Yarn, pip, CocoaPods, Go, npm and Cargo.
+    when:
+      path:
+        - ~/Library/Caches/Homebrew
+        - ~/Library/Caches/Yarn
+        - ~/Library/Caches/pip
+        - ~/Library/Caches/CocoaPods
+        - ~/Library/Caches/go-build
+        - ~/.npm/_cacache
+        - ~/.cargo/registry/cache
+    action:
+      claim: download-cache
+
+  - id: package-caches.stores
+    description: The pnpm content store and Gradle's global caches.
+    when:
+      path: [~/Library/pnpm/store, ~/.gradle/caches]
+    action:
+      claim: store

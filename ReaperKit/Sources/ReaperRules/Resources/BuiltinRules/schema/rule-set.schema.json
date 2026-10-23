@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://macreaper.app/schema/rule-set-1.json",
+  "title": "MacReaper rule set (format 1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "id", "title", "description", "rules"],
+  "properties": {
+    "format": { "const": 1 },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "requires": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+    "categories": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": { "$ref": "#/$defs/category" }
+    },
+    "rules": { "type": "array", "items": { "$ref": "#/$defs/rule" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "qualifiedId": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*\\.[a-z0-9]+(-[a-z0-9]+)*$" },
+    "ref": { "type": "string", "pattern": "^([a-z0-9]+(-[a-z0-9]+)*\\.)?[a-z0-9]+(-[a-z0-9]+)*$" },
+    "var": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$" },
+    "safety": { "enum": ["safe", "review", "dangerous"] },
+    "duration": { "type": "string", "pattern": "^[0-9]+(s|m|h|d|w)$" },
+    "glob": { "type": "string", "minLength": 1, "pattern": "^[^/]+$" },
+    "pathGlob": { "type": "string", "pattern": "^(/|~/)" },
+    "child": { "type": "string", "minLength": 1 },
+    "category": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "safety"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "detail": { "type": "string" },
+        "safety": { "$ref": "#/$defs/safety" }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "when", "action"],
+      "properties": {
+        "id": { "$ref": "#/$defs/qualifiedId" },
+        "description": { "type": "string" },
+        "when": {
+          "allOf": [
+            { "$ref": "#/$defs/condition" },
+            { "anyOf": [
+              { "required": ["name"] }, { "required": ["path"] },
+              { "required": ["contains"] }, { "required": ["containsAny"] }
+            ] },
+            { "if": { "required": ["kind"], "properties": { "kind": { "const": "file" } } },
+              "then": { "anyOf": [{ "required": ["name"] }, { "required": ["path"] }] } }
+          ]
+        },
+        "action": { "$ref": "#/$defs/action" }
+      }
+    },
+    "scopeRef": {
+      "oneOf": [
+        { "$ref": "#/$defs/ref" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "$ref": "#/$defs/ref" },
+            "distance": { "type": "integer", "minimum": 1 },
+            "maxDistance": { "type": "integer", "minimum": 1 }
+          },
+          "not": { "required": ["distance", "maxDistance"] }
+        }
+      ]
+    },
+    "check": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string" },
+            "args": { "type": "object" },
+            "expect": { "type": "object", "additionalProperties": { "type": ["boolean", "string", "number"] } }
+          }
+        }
+      ]
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "kind": { "enum": ["dir", "file"] },
+        "name": { "oneOf": [{ "$ref": "#/$defs/glob" }, { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/glob" } }] },
+        "path": { "oneOf": [{ "$ref": "#/$defs/pathGlob" }, { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/pathGlob" } }] },
+        "capture": { "type": "string", "minLength": 1 },
+        "contains": { "oneOf": [{ "$ref": "#/$defs/child" }, { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/child" } }] },
+        "containsAny": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/child" } },
+        "sibling": { "type": "string", "minLength": 1 },
+        "scope": { "$ref": "#/$defs/scopeRef" },
+        "olderThan": { "$ref": "#/$defs/duration" },
+        "check": { "$ref": "#/$defs/check" }
+      }
+    },
+    "vars": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/var" },
+      "additionalProperties": { "type": "string" }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 1,
+      "properties": {
+        "pushScope": {
+          "oneOf": [
+            { "$ref": "#/$defs/id" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "properties": { "name": { "$ref": "#/$defs/id" }, "set": { "$ref": "#/$defs/vars" } }
+            }
+          ]
+        },
+        "claim": {
+          "oneOf": [
+            { "$ref": "#/$defs/ref" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["category"],
+              "properties": {
+                "category": { "$ref": "#/$defs/ref" },
+                "set": { "$ref": "#/$defs/vars" },
+                "fallback": { "type": "boolean" }
+              }
+            }
+          ]
+        },
+        "skip": { "const": true }
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: rust
+title: Rust
+description: Cargo build output.
+
+categories:
+  target:
+    title: Rust build output
+    detail: Cargo's target directory. Rebuilt on the next cargo build.
+    safety: safe
+
+rules:
+  - id: rust.project
+    description: A directory with Cargo.toml is a crate or workspace root.
+    when:
+      contains: Cargo.toml
+    action:
+      pushScope:
+        name: project
+        set:
+          project: "{name}"
+
+  # CACHEDIR.TAG alone is not enough: targets created by rust-analyzer (flycheck) or
+  # napi-rs often only have .rustc_info.json at the root.
+  - id: rust.target
+    description: The target directory directly inside a crate or workspace root.
+    when:
+      name: target
+      containsAny: [CACHEDIR.TAG, .rustc_info.json]
+      scope: { name: project, distance: 1 }
+    action:
+      claim: target

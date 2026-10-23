@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: python
+title: Python
+description: Virtual environments, bytecode and tool caches.
+
+categories:
+  venv:
+    title: Python virtual environment
+    detail: May contain packages installed by hand; recreate from requirements first.
+    safety: review
+  bytecode:
+    title: Python bytecode cache
+    safety: safe
+  tool-cache:
+    title: Python tool cache
+    detail: pytest, mypy, ruff and tox caches.
+    safety: safe
+
+rules:
+  # Any directory with pyvenv.cfg is a venv, whatever it is called.
+  - id: python.venv
+    description: A directory with pyvenv.cfg.
+    when:
+      contains: pyvenv.cfg
+    action:
+      claim: venv
+
+  - id: python.bytecode
+    description: Any __pycache__ directory.
+    when:
+      name: __pycache__
+    action:
+      claim: bytecode
+
+  - id: python.tool-cache
+    description: pytest, mypy, ruff and tox cache directories.
+    when:
+      name: [.pytest_cache, .mypy_cache, .ruff_cache, .tox]
+    action:
+      claim: tool-cache

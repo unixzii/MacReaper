@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: meson
+title: Meson
+description: Meson build directories.
+
+categories:
+  build:
+    title: Meson build directory
+    safety: safe
+
+rules:
+  # Meson refuses in-source builds, so a directory holding its private state is always a
+  # disposable build tree. No check needed.
+  - id: meson.build
+    description: A directory holding Meson's coredata and build info.
+    when:
+      contains: [meson-private/coredata.dat, meson-info/meson-info.json]
+    action:
+      claim: build

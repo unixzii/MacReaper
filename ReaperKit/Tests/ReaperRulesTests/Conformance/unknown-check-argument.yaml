@@ -1,0 +1,45 @@
+description: "cmake.cache takes no arguments."
+expect:
+  code: unknown-check-argument
+  file: rule-sets/t.yaml
+  line: 29
+files:
+  profiles/p.yaml: |
+    format: 1
+    id: p
+    title: P
+    roots: ["~"]
+    maxDepth: 3
+    ruleSets: [t]
+    preselect: [safe]
+  rule-sets/t.yaml: |
+    format: 1
+    id: t
+    title: T
+    description: Test rule set.
+
+    categories:
+      c:
+        title: C
+        safety: review
+
+    rules:
+      - id: t.project
+        when:
+          contains: x
+        action:
+          pushScope:
+            name: project
+            set:
+              project: "{name}"
+
+      - id: t.claim
+        when:
+          name: a
+          scope: { name: project, distance: 1 }
+        action:
+          claim: c
+
+      - id: t.extra
+        when: { name: z, check: { name: cmake.cache, args: { x: 1 } } }
+        action: { claim: c }

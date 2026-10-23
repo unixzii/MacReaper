@@ -1,0 +1,44 @@
+description: "A mapping may not repeat a key."
+expect:
+  code: duplicate-key
+  file: rule-sets/t.yaml
+  line: 7
+files:
+  profiles/p.yaml: |
+    format: 1
+    id: p
+    title: P
+    roots: ["~"]
+    maxDepth: 3
+    ruleSets: [t]
+    preselect: [safe]
+  rule-sets/t.yaml: |
+    format: 1
+    id: t
+    title: T
+    description: Test rule set.
+
+    categories:
+      c:
+        title: C
+        safety: review
+      c:
+        title: C again
+        safety: safe
+
+    rules:
+      - id: t.project
+        when:
+          contains: x
+        action:
+          pushScope:
+            name: project
+            set:
+              project: "{name}"
+
+      - id: t.claim
+        when:
+          name: a
+          scope: { name: project, distance: 1 }
+        action:
+          claim: c

@@ -1,0 +1,304 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AE0100000000000000000011 /* ReaperEngine in Frameworks */ = {isa = PBXBuildFile; productRef = AE0100000000000000000021 /* ReaperEngine */; };
+		AE0100000000000000000012 /* ReaperRules in Frameworks */ = {isa = PBXBuildFile; productRef = AE0100000000000000000022 /* ReaperRules */; };
+		AE0100000000000000000013 /* ReaperFS in Frameworks */ = {isa = PBXBuildFile; productRef = AE0100000000000000000023 /* ReaperFS */; };
+		AE0100000000000000000014 /* ReaperFSTesting in Frameworks */ = {isa = PBXBuildFile; productRef = AE0100000000000000000024 /* ReaperFSTesting */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AE0100000000000000000031 /* MacReaper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacReaper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		AE0100000000000000000041 /* MacReaper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MacReaper;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AE0100000000000000000051 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE0100000000000000000011 /* ReaperEngine in Frameworks */,
+				AE0100000000000000000012 /* ReaperRules in Frameworks */,
+				AE0100000000000000000013 /* ReaperFS in Frameworks */,
+				AE0100000000000000000014 /* ReaperFSTesting in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AE0100000000000000000061 = {
+			isa = PBXGroup;
+			children = (
+				AE0100000000000000000041 /* MacReaper */,
+				AE0100000000000000000062 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AE0100000000000000000062 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AE0100000000000000000031 /* MacReaper.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AE0100000000000000000071 /* MacReaper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AE0100000000000000000092 /* Build configuration list for PBXNativeTarget "MacReaper" */;
+			buildPhases = (
+				AE0100000000000000000081 /* Sources */,
+				AE0100000000000000000051 /* Frameworks */,
+				AE0100000000000000000082 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AE0100000000000000000041 /* MacReaper */,
+			);
+			name = MacReaper;
+			packageProductDependencies = (
+				AE0100000000000000000021 /* ReaperEngine */,
+				AE0100000000000000000022 /* ReaperRules */,
+				AE0100000000000000000023 /* ReaperFS */,
+				AE0100000000000000000024 /* ReaperFSTesting */,
+			);
+			productName = MacReaper;
+			productReference = AE0100000000000000000031 /* MacReaper.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AE0100000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2710;
+				LastUpgradeCheck = 2710;
+				TargetAttributes = {
+					AE0100000000000000000071 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+				};
+			};
+			buildConfigurationList = AE0100000000000000000091 /* Build configuration list for PBXProject "MacReaper" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AE0100000000000000000061;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AE0100000000000000000101 /* XCLocalSwiftPackageReference "ReaperKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AE0100000000000000000062 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AE0100000000000000000071 /* MacReaper */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AE0100000000000000000082 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AE0100000000000000000081 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AE0100000000000000000093 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AE0100000000000000000094 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		AE0100000000000000000095 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.MacReaper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		AE0100000000000000000096 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.MacReaper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AE0100000000000000000091 /* Build configuration list for PBXProject "MacReaper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AE0100000000000000000093 /* Debug */,
+				AE0100000000000000000094 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AE0100000000000000000092 /* Build configuration list for PBXNativeTarget "MacReaper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AE0100000000000000000095 /* Debug */,
+				AE0100000000000000000096 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AE0100000000000000000101 /* XCLocalSwiftPackageReference "ReaperKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ReaperKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AE0100000000000000000021 /* ReaperEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ReaperEngine;
+		};
+		AE0100000000000000000022 /* ReaperRules */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ReaperRules;
+		};
+		AE0100000000000000000023 /* ReaperFS */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ReaperFS;
+		};
+		AE0100000000000000000024 /* ReaperFSTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ReaperFSTesting;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = AE0100000000000000000001 /* Project object */;
+}

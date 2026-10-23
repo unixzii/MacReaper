@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: dotnet
+title: .NET
+description: MSBuild bin and obj output.
+
+categories:
+  obj:
+    title: MSBuild intermediate output
+    safety: safe
+  bin:
+    title: MSBuild binaries
+    safety: review
+
+rules:
+  - id: dotnet.project
+    description: A directory with a C#, F# or VB project file.
+    when:
+      containsAny: ["*.csproj", "*.fsproj", "*.vbproj"]
+    action:
+      pushScope:
+        name: project
+        set:
+          project: "{name}"
+
+  - id: dotnet.obj
+    description: obj directly inside a project, with restore output in it.
+    when:
+      name: obj
+      contains: project.assets.json
+      scope: { name: project, distance: 1 }
+    action:
+      claim: obj
+
+  - id: dotnet.bin
+    description: bin directly inside a project.
+    when:
+      name: bin
+      scope: { name: project, distance: 1 }
+    action:
+      claim: bin

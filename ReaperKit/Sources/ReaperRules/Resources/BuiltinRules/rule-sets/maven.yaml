@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: maven
+title: Maven
+description: Maven build output.
+
+categories:
+  target:
+    title: Maven build output
+    safety: safe
+
+rules:
+  - id: maven.project
+    description: A directory with pom.xml.
+    when:
+      contains: pom.xml
+    action:
+      pushScope:
+        name: project
+        set:
+          project: "{name}"
+
+  # Same folder name as Cargo's target: the scope and contents tell them apart.
+  - id: maven.target
+    description: The target directory directly inside a Maven project, with Maven output in it.
+    when:
+      name: target
+      containsAny: [classes, maven-status, maven-archiver, surefire-reports]
+      scope: { name: project, distance: 1 }
+    action:
+      claim: target

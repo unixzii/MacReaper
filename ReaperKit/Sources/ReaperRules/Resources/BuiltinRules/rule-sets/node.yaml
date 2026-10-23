@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: node
+title: Node.js
+description: JavaScript dependencies and framework build caches.
+
+categories:
+  modules:
+    title: node_modules
+    detail: Installed packages. Restored by npm, yarn or pnpm install.
+    safety: safe
+  framework-cache:
+    title: Framework build cache
+    detail: Next.js, Nuxt, Turbo, Parcel, SvelteKit and Vite caches.
+    safety: safe
+
+rules:
+  - id: node.project
+    description: A directory with package.json is a package root.
+    when:
+      contains: package.json
+    action:
+      pushScope:
+        name: project
+        set:
+          project: "{name}"
+
+  # A claimed folder is never walked into, so nested node_modules are never reported twice.
+  - id: node.modules
+    description: node_modules directly inside a package root.
+    when:
+      name: node_modules
+      scope: { name: project, distance: 1 }
+    action:
+      claim: modules
+
+  - id: node.framework-cache
+    description: Framework cache folders directly inside a package root.
+    when:
+      name: [.next, .nuxt, .turbo, .parcel-cache, .svelte-kit, .vite]
+      scope: { name: project, distance: 1 }
+    action:
+      claim: framework-cache

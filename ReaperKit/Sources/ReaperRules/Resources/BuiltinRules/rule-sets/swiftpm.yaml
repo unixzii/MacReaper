@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: swiftpm
+title: Swift Package Manager
+description: SwiftPM build folders.
+
+categories:
+  build:
+    title: SwiftPM build folder
+    detail: .build next to Package.swift. Rebuilt on the next swift build.
+    safety: safe
+
+rules:
+  - id: swiftpm.package
+    description: A directory with Package.swift is a package root.
+    when:
+      contains: Package.swift
+    action:
+      pushScope:
+        name: project
+        set:
+          project: "{name}"
+
+  # No content check: a .build made by Xcode only holds DerivedData/, one made by
+  # swift build holds workspace-state.json. The scope is the evidence.
+  - id: swiftpm.build
+    description: The .build directory directly inside a package root.
+    when:
+      name: .build
+      scope: { name: project, distance: 1 }
+    action:
+      claim: build

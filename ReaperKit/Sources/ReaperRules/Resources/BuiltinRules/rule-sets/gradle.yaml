@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: gradle
+title: Gradle
+description: Gradle (including Android) build output.
+
+categories:
+  build:
+    title: Gradle build output
+    safety: safe
+  project-cache:
+    title: Gradle project cache
+    detail: .gradle and Android .cxx folders next to a Gradle build script.
+    safety: safe
+
+rules:
+  - id: gradle.project
+    description: A directory with a Gradle build or settings script.
+    when:
+      containsAny: [build.gradle, build.gradle.kts, settings.gradle, settings.gradle.kts]
+    action:
+      pushScope:
+        name: project
+        set:
+          project: "{name}"
+
+  - id: gradle.build
+    description: The build directory directly inside a Gradle project.
+    when:
+      name: build
+      scope: { name: project, distance: 1 }
+    action:
+      claim: build
+
+  - id: gradle.project-cache
+    description: .gradle and .cxx directly inside a Gradle project.
+    when:
+      name: [.gradle, .cxx]
+      scope: { name: project, distance: 1 }
+    action:
+      claim: project-cache

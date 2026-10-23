@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../schema/profile.schema.json
+format: 1
+id: home
+title: Whole home folder
+roots: ["~"]
+maxDepth: 12
+ruleSets: [core, rust, node, swiftpm, xcode, cmake, meson, gradle, maven, python, dotnet, unity, latex, package-caches, macos]
+preselect: [safe]

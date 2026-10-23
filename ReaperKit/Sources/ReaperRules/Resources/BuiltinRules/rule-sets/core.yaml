@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: core
+title: Core
+description: Walk hygiene and generic, self-describing caches. Required by every profile.
+
+categories:
+  cachedir-tagged:
+    title: Tagged cache directory
+    detail: Contains a valid CACHEDIR.TAG, so the tool that wrote it says it can be regenerated.
+    safety: review
+
+rules:
+  - id: core.skip-vcs
+    description: Never walk into version-control metadata.
+    when:
+      name: [.git, .hg, .svn]
+    action:
+      skip: true
+
+  # A name glob alone is not enough: ~/Library/Caches/com.example.app is a plain
+  # folder named after a bundle id. Real bundles have Contents/Info.plist.
+  - id: core.skip-app-bundles
+    description: Never walk into application, extension, framework or plug-in bundles.
+    when:
+      name: ["*.app", "*.appex", "*.framework", "*.bundle"]
+      contains: Contents/Info.plist
+    action:
+      skip: true
+
+  - id: core.skip-media-libraries
+    description: Never walk into Photos, Music or TV libraries.
+    when:
+      name: ["*.photoslibrary", "*.musiclibrary", "*.tvlibrary"]
+    action:
+      skip: true
+
+  # Deleting anything under these deletes it from the cloud too.
+  - id: core.skip-cloud
+    description: Never walk into iCloud Drive or File Provider storage.
+    when:
+      path: ["~/Library/Mobile Documents", "~/Library/CloudStorage"]
+    action:
+      skip: true
+
+  # iCloud containers also exist inside simulator devices; listing them can block for seconds.
+  - id: core.skip-nested-cloud
+    description: Never walk into any other Mobile Documents folder.
+    when:
+      name: Mobile Documents
+    action:
+      skip: true
+
+  - id: core.skip-trash
+    description: Never walk into the Trash.
+    when:
+      path: ~/.Trash
+    action:
+      skip: true
+
+  # https://bford.info/cachedir/ — Cargo, pytest, mypy, ruff and others write this.
+  # Fallback, so a more specific rule (e.g. rust.target) decides the category when it matches.
+  - id: core.cachedir-tag
+    description: Any directory carrying a valid CACHEDIR.TAG.
+    when:
+      contains: CACHEDIR.TAG
+      check: cachedir.signature
+    action:
+      claim:
+        category: cachedir-tagged
+        fallback: true

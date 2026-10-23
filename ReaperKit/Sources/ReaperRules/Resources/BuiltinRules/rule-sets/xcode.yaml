@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../schema/rule-set.schema.json
+format: 1
+id: xcode
+title: Xcode
+description: Xcode's per-user data under ~/Library/Developer.
+
+categories:
+  derived-data:
+    title: DerivedData
+    detail: Indexes and build products for a project that still exists. Rebuilding takes time.
+    safety: review
+  derived-data-orphaned:
+    title: DerivedData (project gone)
+    detail: The workspace this DerivedData belongs to no longer exists.
+    safety: safe
+  device-support-old:
+    title: Old device support files
+    detail: Symbols for OS versions superseded by a newer one. Re-downloaded if that device reconnects.
+    safety: safe
+  archives:
+    title: Xcode archives
+    detail: Contain the dSYMs needed to symbolicate crash reports of shipped builds.
+    safety: dangerous
+  simulator-caches:
+    title: Simulator caches
+    safety: safe
+
+rules:
+  # Simulator devices are managed by xcrun simctl; deleting folders under them corrupts
+  # the device set. A later format version can offer simctl delete unavailable instead.
+  - id: xcode.skip-simulator-devices
+    description: Never walk into simulator devices.
+    when:
+      path: ~/Library/Developer/CoreSimulator/Devices
+    action:
+      skip: true
+
+  - id: xcode.derived-data
+    description: DerivedData whose workspace (from info.plist) still exists.
+    when:
+      path: ~/Library/Developer/Xcode/DerivedData/*
+      check: { name: xcode.derived-data, expect: { workspaceExists: true } }
+    action:
+      claim:
+        category: derived-data
+        set:
+          project: "{check.workspacePath}"
+
+  - id: xcode.derived-data-orphaned
+    description: DerivedData whose workspace (from info.plist) no longer exists.
+    when:
+      path: ~/Library/Developer/Xcode/DerivedData/*
+      check: { name: xcode.derived-data, expect: { workspaceExists: false } }
+    action:
+      claim:
+        category: derived-data-orphaned
+        set:
+          project: "{check.workspacePath}"
+
+  # "iPhone15,2 17.4 (21E219)": keep the newest version per device model.
+  - id: xcode.device-support-old
+    description: Device support folders superseded by a newer OS version for the same device.
+    when:
+      path: ~/Library/Developer/Xcode/*DeviceSupport/*
+      check:
+        name: version.superseded
+        args: { pattern: '^(?<group>.+?) (?<version>\d+(\.\d+)*) \(' }
+    action:
+      claim: device-support-old
+
+  - id: xcode.archives
+    description: Each dated folder of Xcode archives.
+    when:
+      path: ~/Library/Developer/Xcode/Archives/*
+    action:
+      claim: archives
+
+  - id: xcode.simulator-caches
+    description: The shared CoreSimulator cache folder.
+    when:
+      path: ~/Library/Developer/CoreSimulator/Caches
+    action:
+      claim: simulator-caches
