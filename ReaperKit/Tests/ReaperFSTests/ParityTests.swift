@@ -37,7 +37,7 @@ struct ParityTests {
         "link-to-src/../src", "dangling", "loop-a", "locked", "locked/secret", "missing", "target/../src",
     ]
 
-    @Test("Listings agree, recursively", arguments: [ListingOptions(), .privateSize])
+    @Test("Listings agree, recursively", arguments: [ListingOptions(), .sharedBlocks])
     func listingsAgree(options: ListingOptions) throws {
         let temporary = try TemporaryDirectory()
         try Self.tree.materialize(at: temporary.path)
@@ -86,7 +86,7 @@ private struct Snapshot: Equatable {
         var flags: UInt32
         var linkCount: UInt32
         var allocatedSize: UInt64
-        var privateSize: UInt64?
+        var sharesBlocks: Bool?
     }
 
     var entries: [Entry]
@@ -103,7 +103,7 @@ private struct Snapshot: Equatable {
                 flags: entry.flags,
                 linkCount: entry.linkCount,
                 allocatedSize: entry.allocatedSize,
-                privateSize: entry.privateSize
+                sharesBlocks: entry.sharesBlocks
             )
         }
         failures = listing.failures

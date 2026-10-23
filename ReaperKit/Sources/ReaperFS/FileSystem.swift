@@ -40,6 +40,6 @@ public struct ListingOptions: OptionSet, Hashable, Sendable {
         self.rawValue = rawValue
     }
 
-    /// Each file's ``EntryAttributes/privateSize``. Listings take about 60% longer with it.
-    public static let privateSize = ListingOptions(rawValue: 1 << 0)
+    /// Each file's ``EntryAttributes/sharesBlocks``.
+    public static let sharedBlocks = ListingOptions(rawValue: 1 << 0)
 }

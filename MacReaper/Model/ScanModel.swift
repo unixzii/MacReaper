@@ -145,7 +145,7 @@ final class ScanModel {
         for candidate in candidates {
             for id in candidate.categories {
                 summaries[id, default: CategorySummary(category: rules[id])].count += 1
-                summaries[id]!.bytes += candidate.size?.bytesFreed ?? 0
+                summaries[id]!.bytes += candidate.size?.allocated ?? 0
             }
         }
         return summaries.values.sorted { $0.category.title.localizedStandardCompare($1.category.title) == .orderedAscending }
@@ -153,6 +153,19 @@ final class ScanModel {
 
     var selectedCandidates: [Claim] {
         candidates.filter { selection.contains($0.path) }
+    }
+
+    /// The size of `candidates` together; `nil` while any is unmeasured. A file hard-linked
+    /// into several of them counts in each.
+    func totalSize(of candidates: [Claim]) -> CandidateSize? {
+        var total = CandidateSize()
+        for candidate in candidates {
+            guard let size = candidate.size else {
+                return nil
+            }
+            total.add(size)
+        }
+        return total
     }
 
     // MARK: - Marks

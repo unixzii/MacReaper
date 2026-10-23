@@ -12,22 +12,23 @@ import System
 public struct DiskScanner: Sendable {
 
     public let evaluator: EntryEvaluator
-    public let sizing: Sizing
+    /// Whether candidates are sized: everything inside them listed, and added up.
+    public let sizesCandidates: Bool
     public let workerCount: Int
 
     /// - Parameters:
     ///   - now: The time `olderThan` conditions measure from.
-    ///   - sizing: How much to measure about each candidate.
+    ///   - sizesCandidates: Whether to size candidates, which lists everything inside them.
     ///   - workerCount: Threads that list, evaluate and size directories in parallel.
     public init(
         rules: CompiledRules,
         fileSystem: any FileSystem,
         now: Date = .now,
-        sizing: Sizing = .allocatedAndReclaimable,
+        sizesCandidates: Bool = true,
         workerCount: Int = DiskScanner.defaultWorkerCount
     ) {
         self.evaluator = EntryEvaluator(rules: rules, fileSystem: fileSystem, now: now)
-        self.sizing = sizing
+        self.sizesCandidates = sizesCandidates
         self.workerCount = max(1, workerCount)
     }
 
@@ -35,8 +36,7 @@ public struct DiskScanner: Sendable {
     ///
     /// Listing is mostly kernel work, and past a point more threads only contend in the kernel.
     /// Measured on a Mac with 5 performance and 6 efficiency cores, 8 workers rather than 11
-    /// found candidates as fast with 30% less CPU time, and measured reclaimable sizes about 4%
-    /// faster with 40% less. Allocated sizes alone came out about 6% slower.
+    /// scanned about as fast with 30–40% less CPU time.
     public static var defaultWorkerCount: Int {
         max(1, ProcessInfo.processInfo.activeProcessorCount * 3 / 4)
     }
@@ -59,7 +59,7 @@ public struct DiskScanner: Sendable {
     /// early, or cancelling the task iterating, cancels the scan.
     public func events(every interval: Duration = .milliseconds(100)) -> AsyncThrowingStream<ScanEvent, any Error> {
         AsyncThrowingStream { continuation in
-            let reporter = ScanReporter(measuresReclaimable: sizing == .allocatedAndReclaimable)
+            let reporter = ScanReporter()
             let scan = Task {
                 let ticker = Task {
                     while !Task.isCancelled {
@@ -92,14 +92,13 @@ public struct DiskScanner: Sendable {
     private func run(reporter: ScanReporter?) async throws -> ScanResult {
         let clock = ContinuousClock()
         let start = clock.now
-        let sizeTracker = sizing == .none ? nil : SizeTracker(measuresReclaimable: sizing == .allocatedAndReclaimable)
+        let sizeTracker = sizesCandidates ? SizeTracker() : nil
         let visitor = DirectoryVisitor(evaluator: evaluator, sizeTracker: sizeTracker)
-        let sizer = sizeTracker.map { CandidateSizer(fileSystem: evaluator.fileSystem, sizing: sizing, tracker: $0) }
         let queue = WorkQueue()
         let collected = Collected()
 
         var rootAccumulator = ScanAccumulator()
-        queue.push(visitor.roots(into: &rootAccumulator).map(Work.visit))
+        queue.push(visitor.roots(into: &rootAccumulator))
         collected.add(rootAccumulator)
 
         await withTaskCancellationHandler {
@@ -110,31 +109,19 @@ public struct DiskScanner: Sendable {
                     let thread = Thread {
                         DarwinFileSystem.disableDatalessMaterializationOnCurrentThread()
                         var accumulator = ScanAccumulator()
-                        while let work = queue.next() {
+                        while let item = queue.next() {
                             let foundBefore = accumulator.candidates.count
                             let statsBefore = accumulator.stats
-                            var sized: [SizedCandidate] = []
-                            var visited: FilePath?
-                            switch work {
-                            case .visit(let item):
-                                queue.push(visitor.visit(item, into: &accumulator))
-                                visited = item.path
-                            // Sizing work exists only when the scan sizes candidates, so `sizer` is set.
-                            case .sizeDirectory(let path, let candidate, let device):
-                                let (next, finished) = sizer!.sizeDirectory(path, candidate: candidate, device: device, into: &accumulator)
-                                queue.push(next)
-                                sized += finished.map { [$0] } ?? []
-                            case .sizeFiles(let directory, let names):
-                                sized += sizer!.sizeFiles(in: directory, names: names, into: &accumulator)
-                            }
+                            let (next, sized) = visitor.visit(item, into: &accumulator)
+                            queue.push(next)
                             reporter?.record(
                                 found: accumulator.candidates[foundBefore...],
                                 sized: sized,
                                 directories: accumulator.stats.directories - statsBefore.directories,
                                 files: accumulator.stats.files - statsBefore.files,
-                                currentDirectory: visited
+                                currentDirectory: item.isMeasuring ? nil : item.path
                             )
-                            if queue.finish(work) {
+                            if queue.finish(item) {
                                 reporter?.detectionFinished()
                             }
                         }

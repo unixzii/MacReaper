@@ -9,15 +9,14 @@ import Testing
 @Suite("Benchmark", .enabled(if: ProcessInfo.processInfo.environment["REAPER_BENCH"] != nil), .serialized)
 struct BenchmarkTests {
 
-    static let configurations: [(workers: Int, sizing: Sizing)] = [
-        (1, .none),
-        (ProcessInfo.processInfo.activeProcessorCount, .none),
-        (ProcessInfo.processInfo.activeProcessorCount, .allocated),
-        (ProcessInfo.processInfo.activeProcessorCount, .allocatedAndReclaimable),
+    static let configurations: [(workers: Int, sizes: Bool)] = [
+        (1, false),
+        (DiskScanner.defaultWorkerCount, false),
+        (DiskScanner.defaultWorkerCount, true),
     ]
 
     @Test("Real folders", arguments: configurations)
-    func realFolders(workers: Int, sizing: Sizing) async throws {
+    func realFolders(workers: Int, sizes: Bool) async throws {
         var sources = try RuleSources.builtin()
         let profile = sources.profiles["developer"]!.text
         sources.profiles["developer"]!.text = profile.replacingOccurrences(
@@ -27,32 +26,29 @@ struct BenchmarkTests {
         let loaded = try RuleLoader.loadProfile("developer", from: sources)
         let rules = CompiledRules(loaded, home: NSHomeDirectory())
 
-        let result = try await DiskScanner(rules: rules, fileSystem: DarwinFileSystem(), sizing: sizing, workerCount: workers).scan()
+        let result = try await DiskScanner(rules: rules, fileSystem: DarwinFileSystem(), sizesCandidates: sizes, workerCount: workers).scan()
 
         let stats = result.stats
         let seconds = Double(stats.duration.components.seconds) + Double(stats.duration.components.attoseconds) / 1e18
-        var line = "workers \(workers), sizing \(sizing): \(result.candidates.count) candidates, "
+        var line = "workers \(workers), sized \(sizes): \(result.candidates.count) candidates, "
             + "\(stats.directories) directories + \(stats.files) files in \(String(format: "%.2f", seconds)) s"
         if let total = result.totalSize {
-            line += String(format: "; %.2f GB allocated in %d files", Double(total.allocated) / 1e9, total.files)
-            if let reclaimable = total.reclaimable {
-                line += String(format: ", %.2f GB reclaimable", Double(reclaimable) / 1e9)
-            }
+            line += String(format: "; %.2f GB allocated in %d files, %.2f GB shared", Double(total.allocated) / 1e9, total.files, Double(total.sharedBytes) / 1e9)
         }
         print(line)
 
-        if sizing == .allocatedAndReclaimable {
-            var byCategory: [String: (count: Int, allocated: UInt64, reclaimable: UInt64)] = [:]
+        if sizes {
+            var byCategory: [String: (count: Int, allocated: UInt64, shared: UInt64)] = [:]
             for candidate in result.candidates {
                 let name = candidate.categories.map { rules[$0].name }.joined(separator: "+")
                 let size = candidate.size ?? CandidateSize()
                 byCategory[name, default: (0, 0, 0)].count += 1
                 byCategory[name, default: (0, 0, 0)].allocated += size.allocated
-                byCategory[name, default: (0, 0, 0)].reclaimable += size.reclaimable ?? 0
+                byCategory[name, default: (0, 0, 0)].shared += size.sharedBytes
             }
             for (name, total) in byCategory.sorted(by: { $0.value.allocated > $1.value.allocated }) {
-                print(String(format: "  %8.2f GB allocated %8.2f GB reclaimable  %4d × %@",
-                             Double(total.allocated) / 1e9, Double(total.reclaimable) / 1e9, total.count, name))
+                print(String(format: "  %8.2f GB allocated %8.2f GB shared  %4d × %@",
+                             Double(total.allocated) / 1e9, Double(total.shared) / 1e9, total.count, name))
             }
             let incomplete = result.candidates.filter { $0.size?.isComplete == false }.count
             print("  \(incomplete) candidates incomplete, \(result.errors.count) errors")

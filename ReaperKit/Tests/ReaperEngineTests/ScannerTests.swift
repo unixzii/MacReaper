@@ -22,7 +22,7 @@ struct ScannerTests {
                 candidate.group ?? "-",
                 candidate.variables.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ","),
                 candidate.provenance.map { "\(harness.rules[$0.scope])@\(harness.relative($0.root))" }.joined(separator: ">"),
-                candidate.size.map { "\($0.allocated)/\($0.reclaimable ?? 0) in \($0.files)f \($0.directories)d \($0.isComplete)" } ?? "unsized",
+                candidate.size.map { "\($0.allocated)/\($0.sharedBytes) in \($0.files)f \($0.directories)d \($0.isComplete)" } ?? "unsized",
             ].joined(separator: " | ")
         }
     }
@@ -147,21 +147,51 @@ struct ScannerTests {
                 Directory("Developer/project-\(index)/src")
             }
         }
-        let fileSystem = SlowFileSystem(base: base, delay: .milliseconds(2))
+        // Cancelled from inside the 20th listing, so the test does not depend on how quickly
+        // it gets scheduled itself.
+        let trigger = CancellationTrigger()
+        var fileSystem = SlowFileSystem(base: base, delay: .milliseconds(2))
+        fileSystem.onListing = { count, _ in
+            if count == 20 {
+                trigger.fire()
+            }
+        }
         let harness = try Harness(rules: Self.nodeModulesRule) {}
         let scanner = DiskScanner(rules: harness.rules, fileSystem: fileSystem, now: Harness.now, workerCount: 4)
 
         let task = Task { try await scanner.scan() }
-        while fileSystem.listings < 20 {
-            try await Task.sleep(for: .milliseconds(1))
-        }
-        task.cancel()
+        trigger.arm(task)
 
         await #expect(throws: CancellationError.self) { try await task.value }
-        let listingsAtCancel = fileSystem.listings
+        let listingsAfterScan = fileSystem.listings
         try await Task.sleep(for: .milliseconds(50))
-        #expect(fileSystem.listings < 200)
-        #expect(fileSystem.listings - listingsAtCancel <= 4, "workers stop after their current directory")
+        // Each worker finishes the directory it is listing, and may start one more before it
+        // sees the cancellation.
+        #expect(listingsAfterScan <= 20 + 2 * 4)
+        #expect(fileSystem.listings == listingsAfterScan, "workers stop once the scan has thrown")
+    }
+
+    /// Cancels a task when fired, even if fired before the task is known.
+    final class CancellationTrigger: Sendable {
+
+        private let state = Mutex<(task: Task<ScanResult, any Error>?, isFired: Bool)>((nil, false))
+
+        func arm(_ task: Task<ScanResult, any Error>) {
+            let isFired = state.withLock { state in
+                state.task = task
+                return state.isFired
+            }
+            if isFired {
+                task.cancel()
+            }
+        }
+
+        func fire() {
+            state.withLock { state in
+                state.isFired = true
+                return state.task
+            }?.cancel()
+        }
     }
 
     static let nodeModulesRule = """

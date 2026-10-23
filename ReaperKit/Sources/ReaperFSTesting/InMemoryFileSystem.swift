@@ -215,7 +215,6 @@ public struct InMemoryFileSystem: FileSystem {
         return resolved
     }
 
-    /// A file's private size is its allocated size, or nothing while a clone shares its blocks.
     private func attributes(of node: Node, named name: String, options: ListingOptions) -> EntryAttributes {
         switch node.kind {
         case .directory:
@@ -233,7 +232,7 @@ public struct InMemoryFileSystem: FileSystem {
                 flags: node.flags,
                 linkCount: linkCounts[node.identity] ?? 1,
                 allocatedSize: allocatedSize,
-                privateSize: options.contains(.privateSize) ? (isShared ? 0 : allocatedSize) : nil
+                sharesBlocks: options.contains(.sharedBlocks) ? isShared : nil
             )
         }
     }

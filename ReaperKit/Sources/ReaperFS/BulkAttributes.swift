@@ -21,11 +21,11 @@ enum BulkAttributes {
         request.bitmapcount = u_short(ATTR_BIT_MAP_COUNT)
         request.commonattr = commonAttributes
         request.fileattr = fileAttributes
-        guard options.contains(.privateSize) else {
+        guard options.contains(.sharedBlocks) else {
             return (request, 0)
         }
         // With FSOPT_ATTR_CMN_EXTENDED, the fork attribute group holds extended common attributes.
-        request.forkattr = attrgroup_t(ATTR_CMNEXT_PRIVATESIZE)
+        request.forkattr = attrgroup_t(ATTR_CMNEXT_EXT_FLAGS)
         return (request, UInt64(FSOPT_ATTR_CMN_EXTENDED))
     }
 
@@ -93,10 +93,10 @@ enum BulkAttributes {
             let value = UInt64(reader.read(off_t.self))
             if kind == .file { allocatedSize = value }
         }
-        var privateSize: UInt64?
-        if has(ATTR_CMNEXT_PRIVATESIZE, in: returned.forkattr) {
-            let value = UInt64(reader.read(off_t.self))
-            if kind == .file { privateSize = value }
+        var sharesBlocks: Bool?
+        if has(ATTR_CMNEXT_EXT_FLAGS, in: returned.forkattr) {
+            let value = reader.read(UInt64.self)
+            if kind == .file { sharesBlocks = value & UInt64(EF_MAY_SHARE_BLOCKS | EF_SHARES_ALL_BLOCKS) != 0 }
         }
 
         return .entry(EntryAttributes(
@@ -107,7 +107,7 @@ enum BulkAttributes {
             flags: flags,
             linkCount: linkCount,
             allocatedSize: allocatedSize,
-            privateSize: privateSize
+            sharesBlocks: sharesBlocks
         ))
     }
 }

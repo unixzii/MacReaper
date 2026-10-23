@@ -2,22 +2,32 @@ import ReaperFS
 import ReaperRules
 import System
 
-/// A directory waiting to be visited, with everything learned about it from its parent.
+/// A directory waiting to be listed.
 struct WorkItem: Sendable {
 
+    enum Purpose: Sendable {
+        /// Evaluate the directory and its files, with what its parent's listing told about it.
+        case evaluate(attributes: EntryAttributes, depth: Int, scopes: ScopeStack, siblings: DirectoryListing)
+        /// Add the directory up as part of the candidate at `candidate`, without evaluating it.
+        case measure(candidate: String)
+    }
+
     let path: FilePath
-    let attributes: EntryAttributes
-    let depth: Int
-    let scopes: ScopeStack
-    let siblings: DirectoryListing
     /// The device of the root this directory was reached from; directories on other devices
     /// are not entered.
     let rootDevice: Int32
+    let purpose: Purpose
+
+    var isMeasuring: Bool {
+        if case .measure = purpose { true } else { false }
+    }
 }
 
-/// Visits one directory at a time: lists it, evaluates it and its files, and returns the
-/// subdirectories still to visit and the candidates to size. Holds no mutable state, so any
-/// number of workers can share it.
+/// Visits one directory at a time and returns the subdirectories still to visit.
+///
+/// Outside candidates, a visit evaluates the directory and its files. A claimed directory is not
+/// evaluated further: it and everything below it are added up as the candidate's size, from the
+/// same listings. Holds no mutable state, so any number of workers can share it.
 struct DirectoryVisitor: Sendable {
 
     let evaluator: EntryEvaluator
@@ -30,6 +40,11 @@ struct DirectoryVisitor: Sendable {
 
     var rules: CompiledRules {
         evaluator.rules
+    }
+
+    /// Sizing needs to know which files share blocks with clones.
+    private var listingOptions: ListingOptions {
+        sizeTracker == nil ? [] : .sharedBlocks
     }
 
     /// The scan roots as work items: resolved, with roots inside other roots dropped. A missing
@@ -65,61 +80,85 @@ struct DirectoryVisitor: Sendable {
             }
             return WorkItem(
                 path: path,
-                attributes: attributes,
-                depth: 0,
-                scopes: .empty,
-                siblings: siblings,
-                rootDevice: attributes.identity.device
+                rootDevice: attributes.identity.device,
+                purpose: .evaluate(attributes: attributes, depth: 0, scopes: .empty, siblings: siblings)
             )
         }
     }
 
-    /// Visits `item` and returns the work it leads to: its subdirectories to visit, and the
-    /// candidates it found to size.
-    func visit(_ item: WorkItem, into accumulator: inout ScanAccumulator) -> [Work] {
-        if item.attributes.isDataless {
+    /// Visits `item`.
+    ///
+    /// - Returns: The subdirectories to visit next, and the candidates whose sizes this visit
+    ///   finished.
+    func visit(_ item: WorkItem, into accumulator: inout ScanAccumulator) -> (next: [WorkItem], sized: [SizedCandidate]) {
+        switch item.purpose {
+        case .evaluate(let attributes, let depth, let scopes, let siblings):
+            return evaluate(item, attributes: attributes, depth: depth, scopes: scopes, siblings: siblings, into: &accumulator)
+        case .measure(let candidate):
+            var listing: DirectoryListing?
+            do {
+                let read = try fileSystem.listDirectory(at: item.path, options: listingOptions)
+                accumulator.errors += read.failures.map { ScanError(path: item.path.appending($0.name), error: $0.error) }
+                listing = read
+            } catch {
+                accumulator.errors.append(ScanError(path: item.path, error: error))
+            }
+            return measure(listing, of: item.path, in: candidate, rootDevice: item.rootDevice)
+        }
+    }
+
+    private func evaluate(
+        _ item: WorkItem,
+        attributes: EntryAttributes,
+        depth: Int,
+        scopes inherited: ScopeStack,
+        siblings: DirectoryListing,
+        into accumulator: inout ScanAccumulator
+    ) -> (next: [WorkItem], sized: [SizedCandidate]) {
+        if attributes.isDataless {
             accumulator.errors.append(ScanError(path: item.path, error: .dataless))
-            return []
+            return ([], [])
         }
         let children: DirectoryListing
         do {
-            children = try fileSystem.listDirectory(at: item.path)
+            children = try fileSystem.listDirectory(at: item.path, options: listingOptions)
         } catch {
             accumulator.errors.append(ScanError(path: item.path, error: error))
-            return []
+            return ([], [])
         }
         accumulator.errors += children.failures.map { ScanError(path: item.path.appending($0.name), error: $0.error) }
         accumulator.stats.directories += 1
 
         let entry = EntryContext(
             path: item.path,
-            attributes: item.attributes,
-            depth: item.depth,
+            attributes: attributes,
+            depth: depth,
             children: children,
-            siblings: item.siblings,
-            scopes: item.scopes
+            siblings: siblings,
+            scopes: inherited
         )
         let scopes: ScopeStack
         switch evaluator.evaluate(entry) {
         case .skip:
             accumulator.stats.skipped += 1
-            return []
+            return ([], [])
         case .claim(let claim):
             accumulator.candidates.append(claim)
             guard let sizeTracker else {
-                return []
+                return ([], [])
             }
+            // The listing just made is the first part of the candidate's size.
             sizeTracker.begin(item.path.string)
-            return [.sizeDirectory(item.path, candidate: item.path.string, device: item.rootDevice)]
+            return measure(children, of: item.path, in: item.path.string, rootDevice: item.rootDevice)
         case .descend(let inner):
             scopes = inner
         }
-        guard item.depth < rules.maxDepth else {
-            return []
+        guard depth < rules.maxDepth else {
+            return ([], [])
         }
 
-        var next: [Work] = []
-        var claimedFiles: [String] = []
+        var next: [WorkItem] = []
+        var sized: [SizedCandidate] = []
         let directory = item.path.string
         for child in children.entries {
             // Built as a string: a `FilePath` is needed only for the directories still to visit.
@@ -138,7 +177,7 @@ struct DirectoryVisitor: Sendable {
                 let file = EntryContext(
                     pathString: path,
                     attributes: child,
-                    depth: item.depth + 1,
+                    depth: depth + 1,
                     children: nil,
                     siblings: children,
                     scopes: scopes
@@ -146,7 +185,15 @@ struct DirectoryVisitor: Sendable {
                 switch evaluator.evaluate(file) {
                 case .claim(let claim):
                     accumulator.candidates.append(claim)
-                    claimedFiles.append(child.name)
+                    if let sizeTracker {
+                        // The listing has everything a claimed file's size needs.
+                        var measurement = SizeTracker.Measurement()
+                        measurement.addFile(child)
+                        sizeTracker.begin(path)
+                        if let size = sizeTracker.record(measurement, for: path, followUps: 0) {
+                            sized.append(SizedCandidate(path: claim.path, size: size))
+                        }
+                    }
                 case .skip:
                     accumulator.stats.skipped += 1
                 case .descend:
@@ -158,24 +205,47 @@ struct DirectoryVisitor: Sendable {
                 } else if isExcluded(path) {
                     accumulator.stats.excluded += 1
                 } else {
-                    next.append(.visit(WorkItem(
+                    next.append(WorkItem(
                         path: FilePath(path),
-                        attributes: child,
-                        depth: item.depth + 1,
-                        scopes: scopes,
-                        siblings: children,
-                        rootDevice: item.rootDevice
-                    )))
+                        rootDevice: item.rootDevice,
+                        purpose: .evaluate(attributes: child, depth: depth + 1, scopes: scopes, siblings: children)
+                    ))
                 }
             }
         }
-        if let sizeTracker, !claimedFiles.isEmpty {
-            for name in claimedFiles {
-                sizeTracker.begin(item.path.appending(name).string)
+        return (next, sized)
+    }
+
+    /// Adds what `listing` holds to the candidate at `candidate`: its files, and its
+    /// subdirectories as more directories to measure. Symlinks are not followed, and
+    /// directories on another volume are left out, because cleanup does not cross into them
+    /// either. A missing listing, or entries it could not read, make the size incomplete.
+    private func measure(
+        _ listing: DirectoryListing?,
+        of path: FilePath,
+        in candidate: String,
+        rootDevice: Int32
+    ) -> (next: [WorkItem], sized: [SizedCandidate]) {
+        var measurement = SizeTracker.Measurement()
+        var next: [WorkItem] = []
+        if let listing {
+            measurement.size.directories = 1
+            measurement.size.isComplete = listing.failures.isEmpty
+            for entry in listing.entries {
+                switch entry.kind {
+                case .file:
+                    measurement.addFile(entry)
+                case .directory where entry.identity.device == rootDevice:
+                    next.append(WorkItem(path: path.appending(entry.name), rootDevice: rootDevice, purpose: .measure(candidate: candidate)))
+                case .directory, .symlink, .other:
+                    continue
+                }
             }
-            next.append(.sizeFiles(in: item.path, names: claimedFiles))
+        } else {
+            measurement.size.isComplete = false
         }
-        return next
+        let size = sizeTracker!.record(measurement, for: candidate, followUps: next.count)
+        return (next, size.map { [SizedCandidate(path: FilePath(candidate), size: $0)] } ?? [])
     }
 
     private func isExcluded(_ path: String) -> Bool {

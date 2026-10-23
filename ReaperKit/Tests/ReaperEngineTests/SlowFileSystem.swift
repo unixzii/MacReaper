@@ -14,6 +14,8 @@ struct SlowFileSystem: FileSystem {
 
     let base: InMemoryFileSystem
     let delay: Duration
+    /// Called as each listing starts, with the number of listings so far and the directory.
+    var onListing: @Sendable (Int, FilePath) -> Void = { _, _ in }
     private let counter = Counter()
 
     var listings: Int {
@@ -21,7 +23,7 @@ struct SlowFileSystem: FileSystem {
     }
 
     func listDirectory(at path: FilePath, options: ListingOptions) throws(FSError) -> DirectoryListing {
-        counter.value.add(1, ordering: .relaxed)
+        onListing(counter.value.add(1, ordering: .relaxed).newValue, path)
         Thread.sleep(forTimeInterval: Double(delay.components.attoseconds) / 1e18)
         return try base.listDirectory(at: path, options: options)
     }

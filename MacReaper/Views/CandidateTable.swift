@@ -42,7 +42,7 @@ struct CandidateTable: View {
             TableColumn("Size", value: \.bytes) { row in
                 SizeCell(size: row.claim.size, isMeasuring: model.isScanning)
             }
-            .width(min: 56, ideal: 72)
+            .width(min: 76, ideal: 92)
             .alignment(.trailing)
 
             TableColumn("Project", value: \.project) { row in
@@ -114,9 +114,11 @@ private struct SizeCell: View {
 
     var body: some View {
         if let size {
-            Text((size.isComplete ? "" : "≥ ") + size.bytesFreed.formattedBytes)
+            Text(size.formatted)
                 .monospacedDigit()
-                .help(help(size))
+                .help(size.mayFreeLess
+                    ? "Deleting it may free less: some of its files share space with other files."
+                    : "Deleting it frees this much.")
         } else if isMeasuring {
             ProgressView()
                 .controlSize(.mini)
@@ -124,16 +126,5 @@ private struct SizeCell: View {
             Text("—")
                 .foregroundStyle(.tertiary)
         }
-    }
-
-    private func help(_ size: CandidateSize) -> String {
-        var lines = [String(localized: "\(size.allocated.formattedBytes) allocated")]
-        if let reclaimable = size.reclaimable {
-            lines.append(String(localized: "\(reclaimable.formattedBytes) freed by deleting it"))
-        }
-        if !size.isComplete {
-            lines.append(String(localized: "Some of it couldn’t be read, so it may be larger."))
-        }
-        return lines.joined(separator: "\n")
     }
 }

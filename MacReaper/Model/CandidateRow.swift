@@ -28,9 +28,9 @@ nonisolated struct CandidateRow: Identifiable {
         Safety.allCases.firstIndex(of: claim.safety)!
     }
 
-    /// What deleting the candidate frees, or `0` until it is measured.
+    /// Allocated bytes, or `0` until the candidate is measured.
     var bytes: UInt64 {
-        claim.size?.bytesFreed ?? 0
+        claim.size?.allocated ?? 0
     }
 
     var modified: Date {
@@ -38,10 +38,11 @@ nonisolated struct CandidateRow: Identifiable {
     }
 }
 
-nonisolated extension CandidateSize {
+extension CandidateSize {
 
-    /// Reclaimable bytes when the scan measured them, allocated bytes otherwise.
-    var bytesFreed: UInt64 {
-        reclaimable ?? allocated
+    /// The allocated size, after "<" when deleting may free less because other files share
+    /// part of it, or after "≥" when part of it could not be read.
+    var formatted: String {
+        (mayFreeLess ? "< " : isComplete ? "" : "≥ ") + allocated.formattedBytes
     }
 }

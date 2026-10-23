@@ -71,12 +71,12 @@ struct ScanEventTests {
     @Test("Without sizing, nothing is sized")
     func noSizing() async throws {
         let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
-        let scanner = DiskScanner(rules: harness.rules, fileSystem: harness.fileSystem, now: Harness.now, sizing: .none, workerCount: 2)
+        let scanner = DiskScanner(rules: harness.rules, fileSystem: harness.fileSystem, now: Harness.now, sizesCandidates: false, workerCount: 2)
 
         let (updates, result) = try await Self.events(scanner)
 
         #expect(updates.allSatisfy { $0.sized.isEmpty })
-        #expect(updates.last?.progress.reclaimable == nil)
+        #expect(updates.last?.progress.allocated == 0)
         #expect(updates.last?.progress.candidates == result.candidates.count)
     }
 

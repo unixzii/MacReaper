@@ -1,87 +1,73 @@
 import Foundation
 import System
 
-/// A unit of work for the scan's workers.
-enum Work: Sendable {
-    /// List a directory, evaluate it and its files, and find the subdirectories to visit.
-    case visit(WorkItem)
-    /// Add up a directory that is, or lies inside, the candidate at `candidate`.
-    case sizeDirectory(FilePath, candidate: String, device: Int32)
-    /// Size the claimed files `names` of a directory; each file is its own candidate.
-    case sizeFiles(in: FilePath, names: [String])
-
-    var isSizing: Bool {
-        if case .visit = self { false } else { true }
-    }
-}
-
-/// The work waiting to be done, shared by the scan's worker threads.
+/// The directories waiting to be listed, shared by the scan's worker threads.
 ///
-/// Work comes off the top of a stack, so the walk goes depth first and the queue holds roughly
-/// depth × width items rather than whole levels of the tree. Visiting comes before sizing, so
-/// candidates are found as early as possible. The scan is done when no work is waiting and none
-/// is in progress, because only work in progress can produce more.
+/// Items come off the top of a stack, so the walk goes depth first and the queue holds roughly
+/// depth × width items rather than whole levels of the tree. Directories to evaluate come before
+/// directories to measure, so candidates are found as early as possible. The scan is done when
+/// nothing is waiting and nothing is in progress, because only work in progress can add more.
 final class WorkQueue: @unchecked Sendable {
 
     // Everything below is guarded by `condition`.
     private let condition = NSCondition()
-    private var visits: [Work] = []
-    private var sizing: [Work] = []
-    /// Work waiting or in progress.
+    private var evaluations: [WorkItem] = []
+    private var measurements: [WorkItem] = []
+    /// Items waiting or in progress.
     private var pending = 0
-    /// Visits waiting or in progress.
-    private var pendingVisits = 0
+    /// Items to evaluate, waiting or in progress.
+    private var pendingEvaluations = 0
     private var isCancelled = false
 
-    func push(_ work: [Work]) {
-        guard !work.isEmpty else {
+    func push(_ items: [WorkItem]) {
+        guard !items.isEmpty else {
             return
         }
         condition.lock()
-        for item in work {
-            if item.isSizing {
-                sizing.append(item)
+        for item in items {
+            if item.isMeasuring {
+                measurements.append(item)
             } else {
-                visits.append(item)
-                pendingVisits += 1
+                evaluations.append(item)
+                pendingEvaluations += 1
             }
         }
-        pending += work.count
+        pending += items.count
         condition.broadcast()
         condition.unlock()
     }
 
-    /// The next work to do, waiting while other workers may still produce some. Returns `nil`
+    /// The next directory to list, waiting while other workers may still add some. Returns `nil`
     /// when the scan is done or cancelled. Every item returned must be passed to ``finish(_:)``
-    /// after the work it produced has been pushed.
-    func next() -> Work? {
+    /// after the items it led to have been pushed.
+    func next() -> WorkItem? {
         condition.lock()
         defer { condition.unlock() }
-        while visits.isEmpty, sizing.isEmpty, pending > 0, !isCancelled {
+        while evaluations.isEmpty, measurements.isEmpty, pending > 0, !isCancelled {
             condition.wait()
         }
         guard !isCancelled else {
             return nil
         }
-        return visits.popLast() ?? sizing.popLast()
+        return evaluations.popLast() ?? measurements.popLast()
     }
 
-    /// Marks `work` done.
+    /// Marks `item` done.
     ///
-    /// - Returns: Whether it was the last visit, so that only sizing remains.
+    /// - Returns: Whether it was the last directory to evaluate, so that only measuring remains.
     @discardableResult
-    func finish(_ work: Work) -> Bool {
+    func finish(_ item: WorkItem) -> Bool {
         condition.lock()
         defer { condition.unlock() }
         pending -= 1
         if pending == 0 {
             condition.broadcast()
         }
-        guard !work.isSizing else {
+        guard !item.isMeasuring else {
             return false
         }
-        pendingVisits -= 1
-        return pendingVisits == 0
+        pendingEvaluations -= 1
+        return pendingEvaluations == 0
     }
 
     func cancel() {

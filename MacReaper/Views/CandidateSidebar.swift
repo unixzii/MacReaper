@@ -49,7 +49,7 @@ struct CandidateSidebar: View {
     }
 
     private func total(_ candidates: [Claim]) -> UInt64 {
-        candidates.reduce(0) { $0 + ($1.size?.bytesFreed ?? 0) }
+        candidates.reduce(0) { $0 + ($1.size?.allocated ?? 0) }
     }
 }
 

@@ -137,11 +137,11 @@ struct DarwinFileSystemTests {
     }
 }
 
-@Suite("DarwinFileSystem private size")
-struct PrivateSizeTests {
+@Suite("DarwinFileSystem shared blocks")
+struct SharedBlocksTests {
 
     @Test("Clones share their blocks; copies and hard links do not")
-    func privateSize() throws {
+    func sharedBlocks() throws {
         let temporary = try TemporaryDirectory()
         try Tree {
             File("original", contents: String(repeating: "o", count: 50_000))
@@ -151,14 +151,11 @@ struct PrivateSizeTests {
             Directory("folder")
         }.materialize(at: temporary.path)
 
-        let entries = try DarwinFileSystem().listDirectory(at: temporary.path, options: .privateSize).entries
-        let sizes = Dictionary(uniqueKeysWithValues: entries.map { ($0.name, ($0.allocatedSize, $0.privateSize)) })
+        let entries = try DarwinFileSystem().listDirectory(at: temporary.path, options: .sharedBlocks).entries
+        let shares = Dictionary(uniqueKeysWithValues: entries.map { ($0.name, $0.sharesBlocks) })
 
-        #expect(sizes["original"]?.1 == 0)
-        #expect(sizes["clone"]?.1 == 0)
-        #expect(sizes["copy"]?.1 == sizes["copy"]?.0)
-        #expect(sizes["link"]?.1 == sizes["link"]?.0)
-        #expect(sizes["folder"]?.1 == nil)
-        #expect(try DarwinFileSystem().listDirectory(at: temporary.path).entries.allSatisfy { $0.privateSize == nil })
+        let expected: [String: Bool?] = ["original": true, "clone": true, "copy": false, "link": false, "folder": nil]
+        #expect(shares == expected)
+        #expect(try DarwinFileSystem().listDirectory(at: temporary.path).entries.allSatisfy { $0.sharesBlocks == nil })
     }
 }

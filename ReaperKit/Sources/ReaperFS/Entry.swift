@@ -34,10 +34,13 @@ public struct EntryAttributes: Hashable, Sendable {
     public var linkCount: UInt32
     /// Bytes allocated on disk. Only meaningful for files; 0 for everything else.
     public var allocatedSize: UInt64
-    /// Bytes that deleting the file would free right away: the part not shared with clones or
-    /// snapshots. Only for files, only when requested with ``ListingOptions/privateSize``, and
-    /// only on file systems that report it.
-    public var privateSize: UInt64?
+    /// Whether the file shares blocks with clones of it, which APFS makes with clonefile(2) and
+    /// Finder's Duplicate. Deleting such a file frees only the blocks it does not share. Only
+    /// for files, only when requested with ``ListingOptions/sharedBlocks``, and only on file
+    /// systems that report it.
+    ///
+    /// APFS keeps the mark after the clones are gone, so a marked file may share nothing.
+    public var sharesBlocks: Bool?
 
     public init(
         name: String,
@@ -47,7 +50,7 @@ public struct EntryAttributes: Hashable, Sendable {
         flags: UInt32 = 0,
         linkCount: UInt32 = 1,
         allocatedSize: UInt64 = 0,
-        privateSize: UInt64? = nil
+        sharesBlocks: Bool? = nil
     ) {
         self.name = name
         self.kind = kind
@@ -56,7 +59,7 @@ public struct EntryAttributes: Hashable, Sendable {
         self.flags = flags
         self.linkCount = linkCount
         self.allocatedSize = allocatedSize
-        self.privateSize = privateSize
+        self.sharesBlocks = sharesBlocks
     }
 
     /// Whether this is an iCloud or File Provider placeholder whose contents are not on disk.

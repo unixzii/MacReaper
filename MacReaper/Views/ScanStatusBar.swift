@@ -84,8 +84,8 @@ struct ScanStatusBar: View {
                 return String(localized: "Measuring \(progress!.sizedCandidates) of \(progress!.candidates) candidates…")
             }
         case .finished(let result):
-            let bytes = result.totalSize?.bytesFreed ?? 0
-            return String(localized: "\(result.candidates.count) candidates · \(bytes.formattedBytes)")
+            let size = result.totalSize?.formatted ?? ""
+            return String(localized: "\(result.candidates.count) candidates · \(size)")
         case .cancelled:
             return String(localized: "Scan stopped · \(progress?.candidates ?? 0) candidates found")
         case .failed(let error):

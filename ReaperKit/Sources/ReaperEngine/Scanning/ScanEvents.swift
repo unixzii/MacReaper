@@ -48,8 +48,6 @@ public struct ScanProgress: Hashable, Sendable {
     /// The sum over sized candidates. A file hard-linked into two candidates counts in both here,
     /// but once in the result's total.
     public var allocated: UInt64
-    /// `nil` when the scan does not measure reclaimable sizes.
-    public var reclaimable: UInt64?
     /// A directory visited recently, to show what the scan is looking at.
     public var currentDirectory: FilePath?
     public var elapsed: Duration
@@ -70,7 +68,7 @@ final class ScanReporter: Sendable {
     private let state: Mutex<State>
     private let start = ContinuousClock.now
 
-    init(measuresReclaimable: Bool) {
+    init() {
         state = Mutex(State(progress: ScanProgress(
             phase: .detecting,
             directories: 0,
@@ -78,7 +76,6 @@ final class ScanReporter: Sendable {
             candidates: 0,
             sizedCandidates: 0,
             allocated: 0,
-            reclaimable: measuresReclaimable ? 0 : nil,
             currentDirectory: nil,
             elapsed: .zero
         )))
@@ -101,12 +98,7 @@ final class ScanReporter: Sendable {
             state.progress.files += files
             state.progress.candidates += found.count
             state.progress.sizedCandidates += sized.count
-            for candidate in sized {
-                state.progress.allocated += candidate.size.allocated
-                if state.progress.reclaimable != nil {
-                    state.progress.reclaimable! += candidate.size.reclaimable ?? 0
-                }
-            }
+            state.progress.allocated += sized.reduce(0) { $0 + $1.size.allocated }
             if let currentDirectory {
                 state.progress.currentDirectory = currentDirectory
             }
