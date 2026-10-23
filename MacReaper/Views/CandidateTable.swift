@@ -8,9 +8,11 @@ import System
 struct CandidateTable: View {
 
     @Bindable var model: ScanModel
+    /// Column widths and order, kept across sorts and launches.
+    @SceneStorage("candidateColumns") private var columns = TableColumnCustomization<CandidateRow>()
 
     var body: some View {
-        Table(model.rows, selection: $model.selection, sortOrder: $model.sortOrder) {
+        Table(model.rows, selection: $model.selection, sortOrder: $model.sortOrder, columnCustomization: $columns) {
             TableColumn("") { row in
                 Toggle("Marked", isOn: Binding(
                     get: { row.isMarked },
@@ -20,6 +22,7 @@ struct CandidateTable: View {
                 .help(row.isMarked ? "Marked for cleanup" : "Not marked for cleanup")
             }
             .width(20)
+            .customizationID("marked")
 
             TableColumn("Name", value: \.name) { row in
                 HStack(spacing: 6) {
@@ -38,26 +41,31 @@ struct CandidateTable: View {
                 .help(row.claim.path.string)
             }
             .width(min: 160, ideal: 240)
+            .customizationID("name")
 
             TableColumn("Size", value: \.bytes) { row in
                 SizeCell(size: row.claim.size, isMeasuring: model.isScanning)
             }
             .width(min: 76, ideal: 92)
             .alignment(.trailing)
+            .customizationID("size")
 
             TableColumn("Project", value: \.project) { row in
                 Text(row.project)
                     .foregroundStyle(.secondary)
             }
             .width(min: 60, ideal: 90)
+            .customizationID("project")
 
             TableColumn("Category", value: \.categoryTitle)
                 .width(min: 80, ideal: 130)
+                .customizationID("category")
 
             TableColumn("Safety", value: \.safetyRank) { row in
                 SafetyLabel(safety: row.claim.safety)
             }
             .width(min: 56, ideal: 64)
+            .customizationID("safety")
 
             TableColumn("Modified", value: \.modified) { row in
                 Text(row.modified, format: .relative(presentation: .named))
@@ -65,7 +73,12 @@ struct CandidateTable: View {
                     .help(row.modified.formatted(date: .long, time: .shortened))
             }
             .width(min: 70, ideal: 90)
+            .customizationID("modified")
         }
+        // A new table for each sort order. Re-sorting in place makes the table move nearly every
+        // row, and moving a thousand rows makes AppKit create and tear down a view for each,
+        // which took tens of seconds; a new table makes views for the visible rows only.
+        .id(model.sortOrder)
         .contextMenu(forSelectionType: FilePath.self) { paths in
             if !paths.isEmpty {
                 Button("Mark") { model.setMarked(true, paths) }
