@@ -15,11 +15,13 @@ struct ValidationContext {
     let categories: [String: Category]
     /// Scopes by qualified name, with the variables that every rule pushing the scope sets.
     let scopeVariables: [String: Set<String>]
+    /// The checks rules may call, by name.
+    let checks: [String: CheckSpec]
     /// Rule ids validated so far, to find duplicates across rule sets.
     var ruleIDs: Set<String> = []
     private(set) var diagnostics: [RuleDiagnostic] = []
 
-    init(ruleSets: [RuleSet]) {
+    init(ruleSets: [RuleSet], checks: [CheckSpec]) {
         var categories: [String: Category] = [:]
         var scopeVariables: [String: Set<String>] = [:]
         for ruleSet in ruleSets {
@@ -36,6 +38,7 @@ struct ValidationContext {
         }
         self.categories = categories
         self.scopeVariables = scopeVariables
+        self.checks = Dictionary(checks.map { ($0.name, $0) }) { first, _ in first }
     }
 
     mutating func report(_ code: DiagnosticCode, _ message: String, at location: SourceLocation, ruleID: String? = nil) {

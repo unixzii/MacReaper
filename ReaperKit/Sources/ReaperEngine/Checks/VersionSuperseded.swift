@@ -11,7 +11,12 @@ import ReaperRules
 /// - `supersededBy`: the name of the sibling with the highest version in the group.
 struct VersionSuperseded: Check {
 
-    let name = "version.superseded"
+    let spec = CheckSpec(
+        name: "version.superseded",
+        arguments: [CheckSpec.Argument(name: "pattern", type: .string, isRequired: true)],
+        facts: ["supersededBy": .string],
+        validate: Self.validatePattern
+    )
 
     func evaluate(_ entry: EntryContext, arguments: [String: ScalarValue], fileSystem: any FileSystem) -> Facts? {
         // Validation guarantees a pattern that compiles and has both groups.
@@ -36,5 +41,20 @@ struct VersionSuperseded: Check {
             .filter { $0.key.group == own.group && own.version.lexicographicallyPrecedes($0.key.version) }
             .max { $0.key.version.lexicographicallyPrecedes($1.key.version) }
         return newest.map { ["supersededBy": .string($0.name)] }
+    }
+
+    /// The pattern must compile and name both groups.
+    private static func validatePattern(_ arguments: [String: ScalarValue]) -> CheckSpec.ArgumentProblem? {
+        guard case .string(let pattern) = arguments["pattern"] else {
+            return nil
+        }
+        switch RegexSyntax.groupNames(in: pattern) {
+        case .failure(let error):
+            return .invalidRegex(argument: "pattern", message: error.message)
+        case .success(let names) where !names.isSuperset(of: ["group", "version"]):
+            return .invalid(argument: "pattern", message: "the pattern needs named groups `group` and `version`")
+        case .success:
+            return nil
+        }
     }
 }

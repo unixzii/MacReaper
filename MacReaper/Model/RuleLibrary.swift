@@ -1,4 +1,5 @@
 import Foundation
+import ReaperEngine
 import ReaperRules
 
 /// The profiles the app can scan with, each loaded and compiled when the app starts.

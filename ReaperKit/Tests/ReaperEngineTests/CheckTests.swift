@@ -1,3 +1,4 @@
+import Foundation
 @testable import ReaperEngine
 import ReaperFSTesting
 import ReaperRules
@@ -8,9 +9,36 @@ struct CheckTests {
 
     static let signature = "Signature: 8a477f597d28d172789f06886806bc55\n# This file is a cache directory tag.\n"
 
-    @Test("Every declared check has an implementation")
-    func everyCheckIsImplemented() {
-        #expect(Set(BuiltinChecks.all.keys) == Set(CheckSpec.builtins.keys))
+    @Test("Check names are unique")
+    func uniqueNames() {
+        #expect(Set(BuiltinChecks.specs.map(\.name)).count == BuiltinChecks.all.count)
+    }
+
+    /// The spec's table of checks, which rule authors read, must match what the checks declare.
+    @Test("The rule format spec documents every check as declared")
+    func documented() throws {
+        let spec = URL(filePath: #filePath).appending(path: "../../../../Docs/RuleFormat.md").standardized
+        let text = try String(contentsOf: spec, encoding: .utf8)
+        let section = try #require(text.components(separatedBy: "## 6. Checks").last?.components(separatedBy: "\n## ").first)
+        let types: [String: ScalarType] = ["bool": .boolean, "int": .integer, "string": .string]
+
+        var documented: [String: (arguments: Set<String>, facts: [String: ScalarType])] = [:]
+        for row in section.split(separator: "\n") where row.hasPrefix("| `") {
+            let columns = row.split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) }
+            let name = columns[0].trimmingCharacters(in: CharacterSet(charactersIn: "`"))
+            let arguments = columns[1].matches(of: /`(\w+)`:/).map { String($0.1) }
+            var facts: [String: ScalarType] = [:]
+            for match in columns[3].matches(of: /`(\w+): (\w+)`/) {
+                facts[String(match.1)] = types[String(match.2)]
+            }
+            documented[name] = (Set(arguments), facts)
+        }
+
+        #expect(Set(documented.keys) == Set(BuiltinChecks.specs.map(\.name)))
+        for check in BuiltinChecks.specs {
+            #expect(documented[check.name]?.arguments == Set(check.arguments.map(\.name)), "\(check.name) arguments")
+            #expect(documented[check.name]?.facts == check.facts, "\(check.name) facts")
+        }
     }
 
     @Test("cachedir.signature")
@@ -79,8 +107,7 @@ struct CheckTests {
         }
         let arguments: [String: ScalarValue] = ["pattern": .string(#"^(?<group>.+?) (?<version>\d+(\.\d+)*) \("#)]
         func supersededBy(_ name: String) throws -> ScalarValue? {
-            let context = try harness.context("DeviceSupport/\(name)")
-            return VersionSuperseded().evaluate(context, arguments: arguments, fileSystem: harness.fileSystem)?["supersededBy"]
+            try run(VersionSuperseded(), "DeviceSupport/\(name)", harness, arguments: arguments)?["supersededBy"]
         }
 
         #expect(try supersededBy("iPhone15,2 17.4 (21E219)") == .string("iPhone15,2 18.1 (22B83)"))
@@ -91,8 +118,13 @@ struct CheckTests {
         #expect(try supersededBy("Unrelated") == nil)
     }
 
-    private func run(_ check: some Check, _ path: String, _ harness: Harness) throws -> Facts? {
-        check.evaluate(try harness.context(path), arguments: [:], fileSystem: harness.fileSystem)
+    /// Runs `check`, and makes sure that when it succeeds it reports exactly the facts it declares.
+    private func run(_ check: some Check, _ path: String, _ harness: Harness, arguments: [String: ScalarValue] = [:]) throws -> Facts? {
+        let facts = check.evaluate(try harness.context(path), arguments: arguments, fileSystem: harness.fileSystem)
+        if let facts {
+            #expect(check.spec.describes(facts), "\(check.spec.name) reported \(facts), declares \(check.spec.facts)")
+        }
+        return facts
     }
 
     private static func harness(@TreeBuilder _ tree: () -> [TreeNode]) throws -> Harness {

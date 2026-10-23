@@ -63,7 +63,10 @@ public enum RuleLoader {
     ///
     /// Structural problems in any document are reported first; the cross-document checks run
     /// only when every document is well-formed.
-    public static func loadProfile(_ id: String, from sources: RuleSources) throws(RuleDiagnostics) -> LoadedProfile {
+    ///
+    /// - Parameter checks: The checks rules may call. The engine that runs the rules supplies
+    ///   them, so that rules are validated against the checks it implements.
+    public static func loadProfile(_ id: String, from sources: RuleSources, checks: [CheckSpec]) throws(RuleDiagnostics) -> LoadedProfile {
         guard let profileSource = sources.profiles[id] else {
             let location = SourceLocation(file: "profiles/\(id).yaml", line: 1, column: 1)
             throw RuleDiagnostics([RuleDiagnostic(code: .unknownProfile, message: "there is no profile `\(id)`", location: location)])
@@ -100,7 +103,7 @@ public enum RuleLoader {
             throw RuleDiagnostics(diagnostics)
         }
 
-        var context = ValidationContext(ruleSets: ruleSets)
+        var context = ValidationContext(ruleSets: ruleSets, checks: checks)
         profile.validate(loading: ruleSets, context: &context)
         for ruleSet in ruleSets {
             ruleSet.validate(&context)

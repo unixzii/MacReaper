@@ -22,7 +22,8 @@ let package = Package(
         .testTarget(name: "ReaperFSTests", dependencies: ["ReaperFS", "ReaperFSTesting"]),
         .testTarget(
             name: "ReaperRulesTests",
-            dependencies: ["ReaperRules", "Yams"],
+            // The engine supplies the checks rules are validated against.
+            dependencies: ["ReaperRules", "ReaperEngine", "Yams"],
             resources: [.copy("Conformance")]
         ),
         .testTarget(name: "ReaperEngineTests", dependencies: ["ReaperEngine", "ReaperFSTesting", "ReaperRules"]),

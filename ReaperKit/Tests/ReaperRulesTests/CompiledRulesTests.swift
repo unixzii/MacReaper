@@ -1,3 +1,4 @@
+import ReaperEngine
 @testable import ReaperRules
 import Testing
 

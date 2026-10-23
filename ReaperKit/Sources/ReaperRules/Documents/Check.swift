@@ -35,8 +35,9 @@ public enum ScalarType: String, Hashable, Sendable {
     case string
 }
 
-/// What the loader needs to know about a built-in check to validate calls to it. The engine
-/// supplies the implementations.
+/// What the loader needs to know about a check to validate calls to it: its arguments and the
+/// facts it reports. Each check declares its own, next to its implementation in the engine,
+/// and the loader validates rules against the checks it is given.
 public struct CheckSpec: Sendable {
 
     public struct Argument: Sendable {
@@ -44,6 +45,12 @@ public struct CheckSpec: Sendable {
         public var name: String
         public var type: ScalarType
         public var isRequired: Bool
+
+        public init(name: String, type: ScalarType, isRequired: Bool) {
+            self.name = name
+            self.type = type
+            self.isRequired = isRequired
+        }
     }
 
     public enum ArgumentProblem: Sendable {
@@ -51,53 +58,30 @@ public struct CheckSpec: Sendable {
         case invalid(argument: String, message: String)
     }
 
+    /// The name rules call the check by.
     public var name: String
     public var arguments: [Argument]
+    /// Every fact a successful call reports, with its type.
     public var facts: [String: ScalarType]
     /// Checks argument values beyond their types. Called only when all arguments have the right
     /// type and the required ones are present.
-    var validate: @Sendable ([String: ScalarValue]) -> ArgumentProblem? = { _ in nil }
+    public var validate: @Sendable ([String: ScalarValue]) -> ArgumentProblem?
 
-    public static let builtins: [String: CheckSpec] = Dictionary(
-        uniqueKeysWithValues: [
-            CheckSpec(name: "cachedir.signature", arguments: [], facts: [:]),
-            CheckSpec(
-                name: "cmake.cache",
-                arguments: [],
-                facts: [
-                    "valid": .boolean,
-                    "inSource": .boolean,
-                    "sourceDir": .string,
-                    "sourceExists": .boolean,
-                    "project": .string,
-                ]
-            ),
-            CheckSpec(
-                name: "xcode.derived-data",
-                arguments: [],
-                facts: ["workspacePath": .string, "workspaceExists": .boolean]
-            ),
-            CheckSpec(
-                name: "version.superseded",
-                arguments: [Argument(name: "pattern", type: .string, isRequired: true)],
-                facts: ["supersededBy": .string],
-                validate: validateVersionPattern
-            ),
-        ].map { ($0.name, $0) }
-    )
+    public init(
+        name: String,
+        arguments: [Argument] = [],
+        facts: [String: ScalarType] = [:],
+        validate: @escaping @Sendable ([String: ScalarValue]) -> ArgumentProblem? = { _ in nil }
+    ) {
+        self.name = name
+        self.arguments = arguments
+        self.facts = facts
+        self.validate = validate
+    }
 
-    private static func validateVersionPattern(_ arguments: [String: ScalarValue]) -> ArgumentProblem? {
-        guard case .string(let pattern) = arguments["pattern"] else {
-            return nil
-        }
-        switch RegexSyntax.groupNames(in: pattern) {
-        case .failure(let error):
-            return .invalidRegex(argument: "pattern", message: error.message)
-        case .success(let names) where !names.isSuperset(of: ["group", "version"]):
-            return .invalid(argument: "pattern", message: "the pattern needs named groups `group` and `version`")
-        case .success:
-            return nil
-        }
+    /// Whether `facts` are exactly the facts this check declares, with their types.
+    public func describes(_ facts: [String: ScalarValue]) -> Bool {
+        facts.count == self.facts.count && facts.allSatisfy { self.facts[$0.key] == $0.value.type }
     }
 }
 
@@ -138,7 +122,7 @@ extension CheckCall {
 
     /// Validates the call against its check and returns the variables the check's facts provide.
     func validate(ruleID: String, context: inout ValidationContext) -> Set<String> {
-        guard let spec = CheckSpec.builtins[name.value] else {
+        guard let spec = context.checks[name.value] else {
             context.report(.unknownCheck, "there is no check `\(name.value)`", at: name.location, ruleID: ruleID)
             return []
         }

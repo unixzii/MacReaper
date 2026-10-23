@@ -13,7 +13,7 @@ struct XcodeDerivedData: Check {
 
     private static let maxBytes = 1024 * 1024
 
-    let name = "xcode.derived-data"
+    let spec = CheckSpec(name: "xcode.derived-data", facts: ["workspacePath": .string, "workspaceExists": .boolean])
 
     func evaluate(_ entry: EntryContext, arguments: [String: ScalarValue], fileSystem: any FileSystem) -> Facts? {
         guard let bytes = try? fileSystem.readFile(at: entry.path.appending("info.plist"), maxBytes: Self.maxBytes),

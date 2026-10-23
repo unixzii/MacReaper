@@ -7,7 +7,7 @@ struct CacheDirSignature: Check {
 
     private static let signature = Array("Signature: 8a477f597d28d172789f06886806bc55".utf8)
 
-    let name = "cachedir.signature"
+    let spec = CheckSpec(name: "cachedir.signature")
 
     func evaluate(_ entry: EntryContext, arguments: [String: ScalarValue], fileSystem: any FileSystem) -> Facts? {
         let tag = entry.path.appending("CACHEDIR.TAG")

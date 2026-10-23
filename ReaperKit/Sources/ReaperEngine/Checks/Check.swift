@@ -5,23 +5,40 @@ import System
 /// What a successful check reports, by fact name.
 public typealias Facts = [String: ScalarValue]
 
-/// The implementation of one of the checks declared in `CheckSpec.builtins`.
+/// A built-in check: its declaration, which the rule loader validates calls against, and its
+/// implementation, side by side.
 protocol Check: Sendable {
 
-    /// The name rules call the check by.
-    var name: String { get }
+    /// The check's name, arguments and facts. ``evaluate(_:arguments:fileSystem:)`` reports
+    /// exactly the declared facts.
+    var spec: CheckSpec { get }
 
     /// Returns facts when the check succeeds, or `nil` when it fails. A check that cannot read
-    /// what it needs fails rather than reporting an error.
+    /// what it needs fails rather than reporting an error. `arguments` passed validation
+    /// against ``spec``.
     func evaluate(_ entry: EntryContext, arguments: [String: ScalarValue], fileSystem: any FileSystem) -> Facts?
 }
 
-enum BuiltinChecks {
+/// The checks the engine implements.
+public enum BuiltinChecks {
 
-    static let all: [String: any Check] = Dictionary(
-        uniqueKeysWithValues: ([CacheDirSignature(), CMakeCache(), XcodeDerivedData(), VersionSuperseded()] as [any Check])
-            .map { ($0.name, $0) }
-    )
+    static let all: [any Check] = [CacheDirSignature(), CMakeCache(), XcodeDerivedData(), VersionSuperseded()]
+
+    static let byName: [String: any Check] = Dictionary(uniqueKeysWithValues: all.map { ($0.spec.name, $0) })
+
+    /// What the rule loader needs to validate calls to the checks.
+    public static var specs: [CheckSpec] {
+        all.map(\.spec)
+    }
+}
+
+extension RuleLoader {
+
+    /// Loads the profile `id` and every rule set it names, validating calls to checks against
+    /// the engine's checks.
+    public static func loadProfile(_ id: String, from sources: RuleSources) throws(RuleDiagnostics) -> LoadedProfile {
+        try loadProfile(id, from: sources, checks: BuiltinChecks.specs)
+    }
 }
 
 /// Results of the checks run for one entry, so rules sharing a check with the same arguments
@@ -41,8 +58,11 @@ struct CheckCache {
         if let cached = results[key] {
             return cached
         }
-        // Validation guarantees that every check a rule calls exists.
-        let facts = BuiltinChecks.all[check.name]!.evaluate(entry, arguments: check.arguments, fileSystem: fileSystem)
+        guard let implementation = BuiltinChecks.byName[check.name] else {
+            preconditionFailure("No check `\(check.name)`: load rules with the engine's checks, BuiltinChecks.specs")
+        }
+        let facts = implementation.evaluate(entry, arguments: check.arguments, fileSystem: fileSystem)
+        assert(facts.map(implementation.spec.describes) ?? true, "\(check.name) reported facts it does not declare: \(facts!)")
         results[key] = .some(facts)
         return facts
     }

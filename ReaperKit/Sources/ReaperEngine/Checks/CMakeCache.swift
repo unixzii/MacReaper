@@ -15,7 +15,16 @@ struct CMakeCache: Check {
 
     private static let maxBytes = 256 * 1024
 
-    let name = "cmake.cache"
+    let spec = CheckSpec(
+        name: "cmake.cache",
+        facts: [
+            "valid": .boolean,
+            "inSource": .boolean,
+            "sourceDir": .string,
+            "sourceExists": .boolean,
+            "project": .string,
+        ]
+    )
 
     func evaluate(_ entry: EntryContext, arguments: [String: ScalarValue], fileSystem: any FileSystem) -> Facts? {
         guard let text = fileSystem.readText(at: entry.path.appending("CMakeCache.txt"), maxBytes: Self.maxBytes) else {

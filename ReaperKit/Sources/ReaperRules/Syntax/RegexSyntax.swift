@@ -1,10 +1,10 @@
-/// Validation of the regular expressions in rules.
-enum RegexSyntax {
+/// Validation of the regular expressions in rules, and in check arguments.
+public enum RegexSyntax {
 
     /// Compiles `pattern` with Swift `Regex` and returns the names of its named groups.
     ///
     /// - Returns: The group names, or the compiler's complaint.
-    static func groupNames(in pattern: String) -> Result<Set<String>, RegexSyntaxError> {
+    public static func groupNames(in pattern: String) -> Result<Set<String>, RegexSyntaxError> {
         do {
             _ = try Regex(pattern)
         } catch {
@@ -50,7 +50,7 @@ enum RegexSyntax {
     }
 }
 
-struct RegexSyntaxError: Error {
+public struct RegexSyntaxError: Error {
 
-    var message: String
+    public var message: String
 }
