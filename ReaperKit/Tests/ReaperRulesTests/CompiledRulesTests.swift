@@ -56,8 +56,9 @@ struct CompiledRulesTests {
             }
         }
 
-        #expect(try assignments(of: "rust.project").map(\.template.segments) == [[.name]])
-        #expect(try assignments(of: "cmake.build").map(\.template.segments) == [[.fact("project")], [.fact("sourceDir")]])
+        #expect(try assignments(of: "rust.project").isEmpty)
+        #expect(try assignments(of: "cmake.build").map(\.template.segments) == [[.fact("sourceDir")]])
+        #expect(try assignments(of: "xcode.derived-data").map(\.template.segments) == [[.fact("workspacePath")]])
         let latex = try #require(compiled.rules.first { $0.name == "latex.aux" })
         #expect(latex.condition.sibling?.segments == [.capture("stem"), .literal(".tex")])
         #expect(latex.condition.capture != nil)

@@ -42,9 +42,6 @@ struct RuleStyleTests {
             if let long = action[kind]?.mapping {
                 let onlyKey = kind == "claim" ? "category" : "name"
                 #expect(Self.keys(long) != [onlyKey], "\(ruleID): use the short form of \(kind)")
-                if kind == "pushScope", long["name"]?.string == "project" {
-                    #expect(long["set"]?.mapping?["project"]?.string == "{name}", "\(ruleID): project scopes set project: \"{name}\"")
-                }
             }
         }
     }

@@ -50,22 +50,11 @@ struct CandidateTable: View {
             .alignment(.trailing)
             .customizationID("size")
 
-            TableColumn("Project", value: \.project) { row in
-                Text(row.project)
-                    .foregroundStyle(.secondary)
+            if !model.filter.isCategorized {
+                TableColumn("Category", value: \.categoryTitle)
+                    .width(min: 80, ideal: 130)
+                    .customizationID("category")
             }
-            .width(min: 60, ideal: 90)
-            .customizationID("project")
-
-            TableColumn("Category", value: \.categoryTitle)
-                .width(min: 80, ideal: 130)
-                .customizationID("category")
-
-            TableColumn("Safety", value: \.safetyRank) { row in
-                SafetyLabel(safety: row.claim.safety)
-            }
-            .width(min: 56, ideal: 64)
-            .customizationID("safety")
 
             TableColumn("Modified", value: \.modified) { row in
                 Text(row.modified, format: .relative(presentation: .named))
@@ -106,16 +95,6 @@ struct CandidateTable: View {
     private func copyPaths(_ paths: Set<FilePath>) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(paths.map(\.string).sorted().joined(separator: "\n"), forType: .string)
-    }
-}
-
-struct SafetyLabel: View {
-
-    let safety: Safety
-
-    var body: some View {
-        Text(safety.title)
-            .foregroundStyle(safety.color)
     }
 }
 

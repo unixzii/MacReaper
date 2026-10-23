@@ -19,10 +19,7 @@ rules:
     when:
       containsAny: [build.gradle, build.gradle.kts, settings.gradle, settings.gradle.kts]
     action:
-      pushScope:
-        name: project
-        set:
-          project: "{name}"
+      pushScope: project
 
   - id: gradle.build
     description: The build directory directly inside a Gradle project.

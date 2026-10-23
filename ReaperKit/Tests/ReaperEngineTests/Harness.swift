@@ -109,8 +109,12 @@ struct Harness {
         return EntryContext(path: path, attributes: attributes, depth: depth, children: children, siblings: siblings, scopes: scopes)
     }
 
-    func names(_ categories: [CategoryID]) -> [String] {
-        categories.map { rules[$0].name }
+    func name(_ category: CategoryID) -> String {
+        rules[category].name
+    }
+
+    func name(_ rule: RuleID) -> String {
+        rules[rule].name
     }
 
     func names(_ ruleIDs: [RuleID]) -> [String] {
@@ -125,7 +129,8 @@ func loadInlineProfile(
     rules: String,
     roots: [String] = ["~"],
     maxDepth: Int = 20,
-    exclude: [String] = []
+    exclude: [String] = [],
+    categorySafety: [String: Safety] = [:]
 ) throws -> LoadedProfile {
     let categoryLines = categories.keys.sorted()
         .map { "  \($0): { title: \($0), safety: \(categories[$0]!.rawValue) }" }
@@ -149,6 +154,7 @@ func loadInlineProfile(
         maxDepth: \(maxDepth)
         ruleSets: [t]
         preselect: [safe]
+        categorySafety: {\(categorySafety.keys.sorted().map { "\($0): \(categorySafety[$0]!.rawValue)" }.joined(separator: ", "))}
         """
     let sources = RuleSources(
         ruleSets: [RuleSource(file: "rule-sets/t.yaml", text: ruleSet)],

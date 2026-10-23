@@ -15,10 +15,7 @@ rules:
     when:
       contains: pom.xml
     action:
-      pushScope:
-        name: project
-        set:
-          project: "{name}"
+      pushScope: project
 
   # Same folder name as Cargo's target: the scope and contents tell them apart.
   - id: maven.target

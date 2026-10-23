@@ -53,10 +53,12 @@ private struct CandidateDetails: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                     HStack {
-                        Toggle("Marked for Cleanup", isOn: Binding(
+                        Toggle("Marked", isOn: Binding(
                             get: { model.isMarked(candidate) },
                             set: { model.setMarked($0, [candidate.path]) }
                         ))
+                        .toggleStyle(.checkbox)
+                        .lineLimit(1)
                         Spacer()
                         Button("Show in Finder") {
                             NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: candidate.path.string)])
@@ -65,53 +67,8 @@ private struct CandidateDetails: View {
                 }
             }
 
+            ReasonSection(model: model, candidate: candidate, rules: rules)
             SizeSections(model: model, candidate: candidate)
-
-            Section("Why It Was Found") {
-                ForEach(candidate.categories, id: \.self) { id in
-                    let category = rules[id]
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            Text(category.title)
-                                .bold()
-                            Spacer()
-                            SafetyLabel(safety: category.safety)
-                        }
-                        if let detail = category.detail {
-                            Text(detail)
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                ForEach(candidate.rules, id: \.self) { id in
-                    RuleRow(rule: rules[id])
-                }
-            }
-
-            if candidate.group != nil || !candidate.provenance.isEmpty {
-                Section("Project") {
-                    if let group = candidate.group {
-                        LabeledContent("Name", value: group)
-                    }
-                    ForEach(Array(candidate.provenance.enumerated()), id: \.offset) { _, scope in
-                        LabeledContent(rules[scope.scope]) {
-                            Text(model.displayPath(scope.root))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .help(scope.root.string)
-                        }
-                    }
-                }
-            }
-
-            if !candidate.variables.isEmpty {
-                Section("Variables") {
-                    ForEach(candidate.variables.sorted { $0.key < $1.key }, id: \.key) { name, value in
-                        LabeledContent(name, value: value)
-                    }
-                }
-            }
         }
         .formStyle(.grouped)
     }
@@ -127,7 +84,11 @@ private struct SizeSections: View {
         Section("Size") {
             if let size = candidate.size {
                 LabeledContent("Size", value: size.formatted)
-                LabeledContent("Contents", value: String(localized: "\(size.files) files in \(size.directories) folders"))
+                if size.directories > 0 {
+                    LabeledContent("Contents") {
+                        Text("^[\(size.files) file](inflect: true) in ^[\(size.directories) folder](inflect: true)")
+                    }
+                }
                 if !size.isComplete {
                     Label("Part of it couldn’t be read, so it may be larger.", systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
@@ -186,19 +147,112 @@ private struct Explanation: View {
     }
 }
 
-private struct RuleRow: View {
+/// Why the candidate is here, in one place: its category and safety, the rule that found it,
+/// what the rule noted about it, and the folder it was found inside.
+private struct ReasonSection: View {
 
-    let rule: CompiledRule
+    let model: ScanModel
+    let candidate: Claim
+    let rules: CompiledRules
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(rule.name)
-                .font(.callout.monospaced())
-            if let description = rule.description {
-                Text(description)
-                    .font(.callout)
+        let category = rules[candidate.category]
+        let rule = rules[candidate.rule]
+        Section("Why It’s Here") {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(category.title)
+                        .bold()
+                    Spacer()
+                    SafetyBadge(safety: candidate.safety)
+                }
+                if let detail = category.detail {
+                    Text(detail)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                    Text(candidate.safety.explanation(isMarkedAutomatically: candidate.isPreselected))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Found by")
+                if let description = rule.description {
+                    Text(description)
+                        .foregroundStyle(.secondary)
+                }
+                Text(rule.name)
+                    .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(candidate.variables.sorted { $0.key < $1.key }, id: \.key) { name, value in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(Self.label(for: name))
+                    if value.hasPrefix("/") {
+                        PathText(model.displayPath(FilePath(value)), full: value)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(value)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // The scope the rule asked for, nearest first, rather than every scope it lies in.
+            if let test = rule.condition.scope, let scope = candidate.provenance.last(where: { $0.scope == test.scope }) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Inside")
+                    PathText(model.displayPath(scope.root), full: scope.root.string)
+                        .foregroundStyle(.secondary)
+                    Text(rules[scope.scope])
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    /// A variable's name as a label: `supersededBy` reads "Superseded by".
+    static func label(for variable: String) -> String {
+        var words = ""
+        for character in variable {
+            if character.isUppercase, !words.isEmpty {
+                words += " " + character.lowercased()
+            } else {
+                words.append(character)
+            }
+        }
+        return words.prefix(1).uppercased() + words.dropFirst()
+    }
+}
+
+/// A path shortened for display, in full on hover.
+private struct PathText: View {
+
+    let text: String
+    let full: String
+
+    init(_ text: String, full: String) {
+        self.text = text
+        self.full = full
+    }
+
+    var body: some View {
+        Text(text)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .textSelection(.enabled)
+            .help(full)
     }
 }

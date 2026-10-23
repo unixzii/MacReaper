@@ -20,10 +20,7 @@ rules:
     when:
       contains: package.json
     action:
-      pushScope:
-        name: project
-        set:
-          project: "{name}"
+      pushScope: project
 
   # A claimed folder is never walked into, so nested node_modules are never reported twice.
   - id: node.modules

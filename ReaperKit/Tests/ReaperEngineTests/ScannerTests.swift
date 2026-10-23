@@ -16,10 +16,9 @@ struct ScannerTests {
         result.candidates.map { candidate in
             [
                 harness.relative(candidate.path),
-                harness.names(candidate.categories).joined(separator: "+"),
-                harness.names(candidate.rules).joined(separator: "+"),
+                harness.name(candidate.category),
+                harness.name(candidate.rule),
                 candidate.safety.rawValue,
-                candidate.group ?? "-",
                 candidate.variables.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ","),
                 candidate.provenance.map { "\(harness.rules[$0.scope])@\(harness.relative($0.root))" }.joined(separator: ">"),
                 candidate.size.map { "\($0.allocated)/\($0.sharedBytes) in \($0.files)f \($0.directories)d \($0.isComplete)" } ?? "unsized",
@@ -47,7 +46,7 @@ struct ScannerTests {
         let harness = try Harness(rules: """
               - id: t.project
                 when: { contains: package.json }
-                action: { pushScope: { name: project, set: { project: "{name}" } } }
+                action: { pushScope: project }
               - id: t.modules
                 when: { name: node_modules, scope: { name: project, distance: 1 } }
                 action: { claim: a }
@@ -64,7 +63,8 @@ struct ScannerTests {
         let result = try await harness.scan(workers: 8)
 
         #expect(result.candidates.count == 1_000)
-        #expect(Set(result.candidates.map(\.group)).count == 25)
+        // Each attributed to its own project, not a neighbor's.
+        #expect(result.candidates.allSatisfy { $0.provenance.last?.root == $0.path.removingLastComponent() })
         #expect(result.errors.isEmpty)
     }
 

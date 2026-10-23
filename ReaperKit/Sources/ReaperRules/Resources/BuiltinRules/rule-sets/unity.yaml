@@ -20,10 +20,7 @@ rules:
     when:
       contains: [Assets, ProjectSettings/ProjectVersion.txt]
     action:
-      pushScope:
-        name: project
-        set:
-          project: "{name}"
+      pushScope: project
 
   - id: unity.library
     description: Library directly inside a Unity project.

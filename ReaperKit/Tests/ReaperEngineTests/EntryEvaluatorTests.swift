@@ -84,10 +84,10 @@ struct ConditionTests {
         let harness = try Harness(rules: """
               - id: t.project
                 when: { contains: package.json }
-                action: { pushScope: { name: project, set: { project: "{name}" } } }
+                action: { pushScope: { name: project, set: { package: "{name}" } } }
               - id: t.modules
                 when: { name: node_modules, scope: { name: project, distance: 1 } }
-                action: { claim: { category: a, set: { owner: "{scope.project.project}", root: "{scope.project.root}" } } }
+                action: { claim: { category: a, set: { owner: "{scope.project.package}", root: "{scope.project.root}" } } }
             """) {
             File("webapp/package.json")
             File("webapp/packages/ui/package.json")
@@ -97,7 +97,6 @@ struct ConditionTests {
         let claim = try #require(try harness.claim("webapp/packages/ui/node_modules"))
 
         #expect(claim.variables == ["owner": "ui", "root": "/Users/test/webapp/packages/ui"])
-        #expect(claim.group == "ui")
         #expect(claim.provenance.map(\.root.string) == ["/Users/test/webapp", "/Users/test/webapp/packages/ui"])
     }
 
@@ -165,11 +164,11 @@ struct OutcomeTests {
             Directory("repo/.git/objects")
         }
 
-        guard case .skip(let rules) = try harness.outcome("repo/.git") else {
+        guard case .skip(let rule) = try harness.outcome("repo/.git") else {
             Issue.record("expected a skip")
             return
         }
-        #expect(harness.names(rules) == ["t.skip-git"])
+        #expect(harness.name(rule) == "t.skip-git")
     }
 
     @Test("Fallback claims count only when nothing else claims")
@@ -189,12 +188,13 @@ struct OutcomeTests {
         let specific = try #require(try harness.claim("crate/target"))
         let generic = try #require(try harness.claim("tool/cache"))
 
-        #expect(harness.names(specific.categories) == ["t.specific"])
-        #expect(harness.names(generic.categories) == ["t.generic"])
+        // crate/target holds both claims: the specific one decides although it is less strict.
+        #expect(harness.name(specific.category) == "t.specific")
+        #expect(harness.name(generic.category) == "t.generic")
     }
 
-    @Test("Claims merge: categories union, strictest safety, first rule's variables")
-    func claimMerge() throws {
+    @Test("When several claims hold, the strictest decides alone")
+    func strictestClaim() throws {
         let harness = try Harness(categories: ["calm": .safe, "careful": .review], rules: """
               - id: t.b-second
                 when: { name: shared }
@@ -208,11 +208,48 @@ struct OutcomeTests {
 
         let claim = try #require(try harness.claim("shared"))
 
-        #expect(harness.names(claim.categories) == ["t.calm", "t.careful"])
+        #expect(harness.name(claim.rule) == "t.b-second")
+        #expect(harness.name(claim.category) == "t.careful")
         #expect(claim.safety == .review)
         #expect(!claim.isPreselected)
-        #expect(harness.names(claim.rules) == ["t.a-first", "t.b-second"])
-        #expect(claim.variables == ["label": "first", "only": "b"])
+        #expect(claim.variables == ["label": "second", "only": "b"])
+    }
+
+    @Test("Between equally strict claims, the lowest rule id decides")
+    func lowestIDClaim() throws {
+        let harness = try Harness(categories: ["one": .safe, "two": .safe], rules: """
+              - id: t.b-second
+                when: { name: shared }
+                action: { claim: two }
+              - id: t.a-first
+                when: { name: shared }
+                action: { claim: one }
+            """) {
+            Directory("shared")
+        }
+
+        let claim = try #require(try harness.claim("shared"))
+
+        #expect(harness.name(claim.rule) == "t.a-first")
+        #expect(harness.name(claim.category) == "t.one")
+    }
+
+    @Test("Profile overrides decide which claim is stricter")
+    func overriddenSafety() throws {
+        let rules = """
+              - id: t.a-first
+                when: { name: shared }
+                action: { claim: one }
+              - id: t.b-second
+                when: { name: shared }
+                action: { claim: two }
+            """
+        let loaded = try loadInlineProfile(categories: ["one": .safe, "two": .safe], rules: rules, categorySafety: ["t.two": .dangerous])
+        let compiled = CompiledRules(loaded, home: Harness.home.string)
+
+        let claimRule = compiled.inEvaluationOrder(compiled.rules.map(\.id)).first.map { compiled[$0].name }
+
+        #expect(claimRule == "t.b-second")
     }
 
     @Test("Scopes pushed twice at one entry merge into one instance")
@@ -256,6 +293,6 @@ struct OutcomeTests {
         #expect(claim.path == "/Users/test/app/node_modules")
         #expect(claim.identity == listed.identity)
         #expect(claim.modified == .daysBefore(Harness.now, 5))
-        #expect(claim.group == nil)
+        #expect(claim.provenance.isEmpty)
     }
 }

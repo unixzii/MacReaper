@@ -44,7 +44,7 @@ rules:
       claim:
         category: derived-data
         set:
-          project: "{check.workspacePath}"
+          workspace: "{check.workspacePath}"
 
   - id: xcode.derived-data-orphaned
     description: DerivedData whose workspace (from info.plist) no longer exists.
@@ -55,7 +55,7 @@ rules:
       claim:
         category: derived-data-orphaned
         set:
-          project: "{check.workspacePath}"
+          workspace: "{check.workspacePath}"
 
   # "iPhone15,2 17.4 (21E219)": keep the newest version per device model.
   - id: xcode.device-support-old

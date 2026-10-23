@@ -14,8 +14,8 @@ struct FixtureTests {
         let result = try await harness.scan()
 
         let found = Self.summary(result, harness)
-        for (path, categories) in Fixture.expected.sorted(by: { $0.key < $1.key }) {
-            #expect(found[path] == categories, "\(path)")
+        for (path, category) in Fixture.expected.sorted(by: { $0.key < $1.key }) {
+            #expect(found[path] == category, "\(path)")
         }
         for path in Set(found.keys).subtracting(Fixture.expected.keys).sorted() {
             Issue.record("Unexpected candidate \(path): \(found[path]!.sorted())")
@@ -23,16 +23,17 @@ struct FixtureTests {
         #expect(result.errors.isEmpty)
     }
 
-    @Test("Groups, preselection and nesting")
+    @Test("Scopes, preselection and nesting")
     func details() async throws {
         let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
 
         let result = try await harness.scan()
 
         let byPath = Dictionary(uniqueKeysWithValues: result.candidates.map { (harness.relative($0.path), $0) })
-        for (path, group) in Fixture.expectedGroups {
+        for (path, scope) in Fixture.expectedInnermostScopes {
             let candidate = try #require(byPath[path], "\(path) was not claimed")
-            #expect(candidate.group == group, "\(path)")
+            let innermost = candidate.provenance.last.map { "\(harness.rules[$0.scope])@\(harness.relative($0.root))" }
+            #expect(innermost == scope, "\(path)")
         }
         for candidate in result.candidates {
             #expect(candidate.isPreselected == (candidate.safety == .safe), "\(candidate.path)")
@@ -69,9 +70,9 @@ struct FixtureTests {
         #expect(before != after)
     }
 
-    static func summary(_ result: ScanResult, _ harness: Harness) -> [String: Set<String>] {
+    static func summary(_ result: ScanResult, _ harness: Harness) -> [String: String] {
         Dictionary(uniqueKeysWithValues: result.candidates.map { candidate in
-            (harness.relative(candidate.path), Set(harness.names(candidate.categories)))
+            (harness.relative(candidate.path), harness.name(candidate.category))
         })
     }
 }

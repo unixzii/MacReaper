@@ -16,10 +16,7 @@ rules:
     when:
       contains: Package.swift
     action:
-      pushScope:
-        name: project
-        set:
-          project: "{name}"
+      pushScope: project
 
   # No content check: a .build made by Xcode only holds DerivedData/, one made by
   # swift build holds workspace-state.json. The scope is the evidence.

@@ -18,10 +18,7 @@ rules:
     when:
       containsAny: ["*.csproj", "*.fsproj", "*.vbproj"]
     action:
-      pushScope:
-        name: project
-        set:
-          project: "{name}"
+      pushScope: project
 
   - id: dotnet.obj
     description: obj directly inside a project, with restore output in it.

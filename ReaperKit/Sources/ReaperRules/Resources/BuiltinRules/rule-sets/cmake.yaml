@@ -26,10 +26,7 @@ rules:
       contains: [CMakeCache.txt, CMakeLists.txt]
       check: { name: cmake.cache, expect: { valid: true, inSource: true } }
     action:
-      pushScope:
-        name: in-source
-        set:
-          project: "{check.project}"
+      pushScope: in-source
 
   - id: cmake.build
     description: An out-of-source build tree whose source still exists.
@@ -40,7 +37,6 @@ rules:
       claim:
         category: build
         set:
-          project: "{check.project}"
           source: "{check.sourceDir}"
 
   - id: cmake.build-orphaned
@@ -52,7 +48,6 @@ rules:
       claim:
         category: build-orphaned
         set:
-          project: "{check.project}"
           source: "{check.sourceDir}"
 
   - id: cmake.in-source-files

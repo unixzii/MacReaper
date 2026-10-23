@@ -6,7 +6,7 @@ import System
 /// What evaluating one entry decided.
 public enum EntryOutcome: Sendable {
     /// A rule skips the entry: it is neither claimed nor descended into.
-    case skip(by: [RuleID])
+    case skip(by: RuleID)
     /// The entry is a cleanup candidate, and nothing inside it is visited.
     case claim(Claim)
     /// Neither: a directory's children are visited with these scopes, which include any the
@@ -14,7 +14,7 @@ public enum EntryOutcome: Sendable {
     case descend(ScopeStack)
 }
 
-/// An entry claimed as a cleanup candidate.
+/// An entry claimed as a cleanup candidate, by one rule.
 public struct Claim: Sendable {
 
     public let path: FilePath
@@ -22,18 +22,14 @@ public struct Claim: Sendable {
     /// still deletes the same thing.
     public let identity: FileIdentity
     public let modified: Date
-    /// In id order.
-    public let categories: [CategoryID]
-    /// The strictest safety of the categories.
+    /// The rule that claimed the entry.
+    public let rule: RuleID
+    public let category: CategoryID
+    /// The category's safety, after profile overrides.
     public let safety: Safety
     public let isPreselected: Bool
-    /// The rules that claimed the entry, in id order.
-    public let rules: [RuleID]
-    /// The claims' `set` variables, merged.
+    /// The rule's `set` variables.
     public let variables: [String: String]
-    /// The project the candidate belongs to, for grouping: the claim's `project` variable, or
-    /// else the nearest scope's.
-    public let group: String?
     /// Every scope the entry inherited, outermost first.
     public let provenance: [ScopeInstance]
     /// Filled in by the scan's sizing phase; `nil` when the scan does not size candidates.
@@ -58,6 +54,9 @@ public struct EntryEvaluator: Sendable {
         self.now = now
     }
 
+    /// Tries the rules that could hold in ``CompiledRules/inEvaluationOrder(_:)``: the first
+    /// skip or claim that holds decides, and no later rule is tried. Otherwise every scope push
+    /// that holds applies.
     public func evaluate(_ entry: EntryContext) -> EntryOutcome {
         // Looked up in place: copying an index retains every table in it.
         let candidates: RuleSelection
@@ -74,81 +73,47 @@ public struct EntryEvaluator: Sendable {
             return .descend(entry.scopes)
         }
         var checks = CheckCache()
-        var held: [HeldRule] = []
-        for id in candidates {
+        var pushes: [(rule: CompiledRule, bindings: Bindings)] = []
+        for id in rules.inEvaluationOrder(candidates) {
             let rule = rules[id]
-            if let bindings = rule.condition.evaluate(entry, fileSystem: fileSystem, now: now, checks: &checks) {
-                held.append(HeldRule(rule: rule, bindings: bindings))
+            guard let bindings = rule.condition.evaluate(entry, fileSystem: fileSystem, now: now, checks: &checks) else {
+                continue
+            }
+            switch rule.action {
+            case .skip:
+                return .skip(by: id)
+            case .claim(let category, let assignments, _):
+                return .claim(claim(entry, by: rule, category: category, assignments: assignments, bindings: bindings))
+            case .pushScope:
+                pushes.append((rule, bindings))
             }
         }
-
-        // Skips win over everything else on the entry.
-        let skips = held.filter { if case .skip = $0.rule.action { true } else { false } }
-        if !skips.isEmpty {
-            return .skip(by: skips.map(\.rule.id))
-        }
-        if let claim = claim(entry, from: held) {
-            return .claim(claim)
-        }
-        return .descend(entry.scopes.pushing(scopes(entry, from: held)))
-    }
-
-    /// A rule whose conditions hold for the entry, with what they bound.
-    private struct HeldRule {
-
-        let rule: CompiledRule
-        let bindings: Bindings
-    }
-
-    private struct HeldClaim {
-
-        let rule: CompiledRule
-        let category: CategoryID
-        let assignments: [CompiledAssignment]
-        let isFallback: Bool
-        let bindings: Bindings
+        return .descend(entry.scopes.pushing(scopes(entry, from: pushes)))
     }
 
     // MARK: Claims
 
-    /// Merges the claims that hold into one candidate. Fallback claims count only when no other
-    /// claim holds. `held` is in rule id order, so where variables conflict the first rule wins.
-    private func claim(_ entry: EntryContext, from held: [HeldRule]) -> Claim? {
-        let claims = held.compactMap { held -> HeldClaim? in
-            guard case .claim(let category, let assignments, let isFallback) = held.rule.action else {
-                return nil
-            }
-            return HeldClaim(
-                rule: held.rule,
-                category: category,
-                assignments: assignments,
-                isFallback: isFallback,
-                bindings: held.bindings
-            )
-        }
-        let deciding = claims.contains { !$0.isFallback } ? claims.filter { !$0.isFallback } : claims
-        guard !deciding.isEmpty else {
-            return nil
-        }
-
-        let categories = Set(deciding.map(\.category)).sorted()
-        let safety = categories.map { rules[$0].safety }.max()!
+    private func claim(
+        _ entry: EntryContext,
+        by rule: CompiledRule,
+        category: CategoryID,
+        assignments: [CompiledAssignment],
+        bindings: Bindings
+    ) -> Claim {
         var variables: [String: String] = [:]
-        for claim in deciding {
-            for assignment in claim.assignments where variables[assignment.variable] == nil {
-                variables[assignment.variable] = assignment.template.render(for: entry, bindings: claim.bindings)
-            }
+        for assignment in assignments {
+            variables[assignment.variable] = assignment.template.render(for: entry, bindings: bindings)
         }
+        let safety = rules[category].safety
         return Claim(
             path: entry.path,
             identity: entry.attributes.identity,
             modified: entry.attributes.modified,
-            categories: categories,
+            rule: rule.id,
+            category: category,
             safety: safety,
             isPreselected: rules.preselect.contains(safety),
-            rules: deciding.map(\.rule.id),
             variables: variables,
-            group: variables["project"] ?? entry.scopes.nearest(setting: "project")?.variables["project"],
             provenance: entry.scopes.instances
         )
     }
@@ -157,7 +122,7 @@ public struct EntryEvaluator: Sendable {
 
     /// One instance per scope pushed at the entry. When several rules push the same scope,
     /// their variables merge, and where they conflict the rule with the lowest id wins.
-    private func scopes(_ entry: EntryContext, from held: [HeldRule]) -> [ScopeInstance] {
+    private func scopes(_ entry: EntryContext, from held: [(rule: CompiledRule, bindings: Bindings)]) -> [ScopeInstance] {
         var pushes: [ScopeID: (variables: [String: String], rules: [RuleID])] = [:]
         for held in held {
             guard case .pushScope(let scope, let assignments) = held.rule.action else {

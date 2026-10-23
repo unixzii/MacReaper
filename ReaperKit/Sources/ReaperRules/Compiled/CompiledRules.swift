@@ -48,6 +48,8 @@ public struct CompiledRules: Sendable {
     public let directoryIndex: RuleIndex
     /// The rules that apply to files.
     public let fileIndex: RuleIndex
+    /// Each rule's place in ``inEvaluationOrder(_:)``, indexed by ``RuleID``.
+    private let evaluationRanks: [Int]
 
     /// Compiles a profile that ``RuleLoader`` loaded, so it is known to be valid.
     ///
@@ -77,6 +79,36 @@ public struct CompiledRules: Sendable {
         preselect = Set(loaded.profile.preselect.map(\.value))
         directoryIndex = RuleIndex(rules.filter { $0.condition.kind == .directory }, capacity: rules.count)
         fileIndex = RuleIndex(rules.filter { $0.condition.kind == .file }, capacity: rules.count)
+
+        var ranks = Array(repeating: 0, count: rules.count)
+        let categories = categories
+        let ordered = rules.sorted { lhs, rhs in
+            (Self.evaluationKey(lhs, categories), lhs.id.index) < (Self.evaluationKey(rhs, categories), rhs.id.index)
+        }
+        for (rank, rule) in ordered.enumerated() {
+            ranks[rule.id.index] = rank
+        }
+        evaluationRanks = ranks
+    }
+
+    /// `rules` in the order an entry tries them: skips, then claims, then scope pushes. Claims
+    /// that are not fallbacks come first, and among those the strictest category first, so that
+    /// when several claims would hold, the first one tried is the one that decides. Ties go to
+    /// the lowest rule id.
+    public func inEvaluationOrder(_ rules: some Sequence<RuleID>) -> [RuleID] {
+        rules.sorted { evaluationRanks[$0.index] < evaluationRanks[$1.index] }
+    }
+
+    private static func evaluationKey(_ rule: CompiledRule, _ categories: [CompiledCategory]) -> Int {
+        switch rule.action {
+        case .skip:
+            0
+        case .claim(let category, _, let isFallback):
+            // 1 to 6: non-fallback before fallback, then dangerous before review before safe.
+            1 + (isFallback ? Safety.allCases.count : 0) + (Safety.allCases.count - 1 - Safety.allCases.firstIndex(of: categories[category.index].safety)!)
+        case .pushScope:
+            1 + 2 * Safety.allCases.count
+        }
     }
 
     public subscript(id: RuleID) -> CompiledRule {

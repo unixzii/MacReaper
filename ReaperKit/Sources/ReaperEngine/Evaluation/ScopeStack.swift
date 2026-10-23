@@ -55,18 +55,6 @@ public struct ScopeStack: Sendable {
         return nil
     }
 
-    /// The nearest instance that sets `variable`, searching from the innermost scope outwards.
-    public func nearest(setting variable: String) -> ScopeInstance? {
-        var node = top
-        while let current = node {
-            if current.instance.variables[variable] != nil {
-                return current.instance
-            }
-            node = current.parent
-        }
-        return nil
-    }
-
     /// Every instance, outermost first.
     public var instances: [ScopeInstance] {
         var instances: [ScopeInstance] = []

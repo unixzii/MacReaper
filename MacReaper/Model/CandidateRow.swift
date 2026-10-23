@@ -20,14 +20,6 @@ nonisolated struct CandidateRow: Identifiable {
         claim.path.lastComponent?.string ?? claim.path.string
     }
 
-    var project: String {
-        claim.group ?? ""
-    }
-
-    var safetyRank: Int {
-        Safety.allCases.firstIndex(of: claim.safety)!
-    }
-
     /// Allocated bytes, or `0` until the candidate is measured.
     var bytes: UInt64 {
         claim.size?.allocated ?? 0

@@ -31,30 +31,30 @@ struct ShippedRulesTests {
     func rustTarget() throws {
         let claim = try #require(try harness.claim("Developer/dua-cli/target"))
 
-        #expect(harness.names(claim.categories) == ["rust.target"])
-        #expect(harness.names(claim.rules) == ["rust.target"])
-        #expect(claim.group == "dua-cli")
+        #expect(harness.name(claim.category) == "rust.target")
+        #expect(harness.name(claim.rule) == "rust.target")
+        #expect(claim.provenance.last.map { harness.relative($0.root) } == "Developer/dua-cli")
         #expect(claim.isPreselected)
     }
 
     @Test("A target with only .rustc_info.json is still Rust output")
     func rustTargetWithoutTag() throws {
-        #expect(try harness.claim("Developer/napi-mod/target").map { harness.names($0.categories) } == ["rust.target"])
+        #expect(try harness.claim("Developer/napi-mod/target").map { harness.name($0.category) } == "rust.target")
     }
 
-    @Test("node_modules is claimed with its package as the group")
+    @Test("node_modules is claimed inside its package's scope")
     func nodeModules() throws {
         let claim = try #require(try harness.claim("Developer/webapp/node_modules"))
 
-        #expect(harness.names(claim.categories) == ["node.modules"])
-        #expect(claim.group == "webapp")
+        #expect(harness.name(claim.category) == "node.modules")
+        #expect(claim.provenance.last.map { harness.relative($0.root) } == "Developer/webapp")
     }
 
     @Test("A tagged cache with no specific rule falls back to the generic category")
     func genericCache() throws {
         let claim = try #require(try harness.claim("Developer/tool-out/fancy-cache"))
 
-        #expect(harness.names(claim.categories) == ["core.cachedir-tagged"])
+        #expect(harness.name(claim.category) == "core.cachedir-tagged")
         #expect(claim.safety == .review)
         #expect(!claim.isPreselected)
     }
@@ -65,11 +65,11 @@ struct ShippedRulesTests {
         ("Library/Mobile Documents", "core.skip-cloud"),
     ])
     func skips(path: String, rule: String) throws {
-        guard case .skip(let rules) = try harness.outcome(path) else {
+        guard case .skip(let skippedBy) = try harness.outcome(path) else {
             Issue.record("\(path) should be skipped")
             return
         }
-        #expect(harness.names(rules).contains(rule))
+        #expect(harness.name(skippedBy) == rule)
     }
 
     @Test("A folder named like a bundle is not a bundle")

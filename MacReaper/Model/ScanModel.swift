@@ -10,6 +10,15 @@ enum CandidateFilter: Hashable {
     case all
     case marked
     case category(CategoryID)
+    
+    var isCategorized: Bool {
+        switch self {
+        case .all, .marked:
+            return false
+        default:
+            return true
+        }
+    }
 }
 
 /// One category in the sidebar, with what was found in it so far.
@@ -121,15 +130,15 @@ final class ScanModel {
                 switch filter {
                 case .all: true
                 case .marked: isMarked(candidate)
-                case .category(let id): candidate.categories.contains(id)
+                case .category(let id): candidate.category == id
                 }
             }
-            .filter { query.isEmpty || $0.path.string.localizedStandardContains(query) || ($0.group?.localizedStandardContains(query) ?? false) }
+            .filter { query.isEmpty || $0.path.string.localizedStandardContains(query) }
             .map { candidate in
                 CandidateRow(
                     claim: candidate,
                     isMarked: isMarked(candidate),
-                    categoryTitle: candidate.categories.map { rules[$0].title }.formatted(.list(type: .and)),
+                    categoryTitle: rules[candidate.category].title,
                     location: displayPath(candidate.path.removingLastComponent())
                 )
             }
@@ -143,10 +152,9 @@ final class ScanModel {
         }
         var summaries: [CategoryID: CategorySummary] = [:]
         for candidate in candidates {
-            for id in candidate.categories {
-                summaries[id, default: CategorySummary(category: rules[id])].count += 1
-                summaries[id]!.bytes += candidate.size?.allocated ?? 0
-            }
+            let id = candidate.category
+            summaries[id, default: CategorySummary(category: rules[id])].count += 1
+            summaries[id]!.bytes += candidate.size?.allocated ?? 0
         }
         return summaries.values.sorted { $0.category.title.localizedStandardCompare($1.category.title) == .orderedAscending }
     }

@@ -125,8 +125,9 @@ evaluation is *E*.
   literal (no wildcards) and tested for existence without following a final symlink.
   `contains`/`containsAny` are false for files.
 - There are no boolean combinators. AND is the map itself. For OR, use the list
-  forms (`name`, `path`, `containsAny`) or write one rule per alternative: claims on
-  the same entry merge (§7.1), so overlapping rules are harmless. There is no negation.
+  forms (`name`, `path`, `containsAny`) or write one rule per alternative: when
+  several claims hold for an entry, exactly one decides (§7.1), so overlapping rules
+  are harmless. There is no negation.
 
 ### 4.2 Indexability
 
@@ -164,9 +165,6 @@ An action has **exactly one** key.
 - `set` maps variable names (camelCase) to templates (§5.4).
 - A claimed entry is the unit of cleanup, so nothing inside it is evaluated, and
   candidates never nest.
-
-**Well-known variables.** `project` (on a scope or a claim) is the display name
-used to group candidates. The innermost source wins: claim, then nearest scope.
 
 ---
 
@@ -256,19 +254,22 @@ the engine visits the root at depth 0 with an empty scope stack. Visiting entry
 3. If *E* matches the profile's `exclude`, it is not visited.
 4. If *E* is a directory whose listing fails, a scan error is recorded and *E* is
    not visited further.
-5. Candidate rules for *E* are taken from the index and evaluated. Rules whose
-   `kind` differs from *E*'s are not evaluated.
-6. If any rule that holds has `skip`, stop.
-7. **Claims.** If any non-fallback claim holds, fallback claims are discarded. If
-   any claim remains, they merge into one candidate (categories unioned, safety the
-   strictest after profile overrides, `set` variables merged) and the visit stops.
+5. Candidate rules for *E* are taken from the index. Rules whose `kind` differs
+   from *E*'s are not evaluated. The rest are tried in this order, ties going to the
+   rule whose qualified id sorts first:
+   1. `skip` rules;
+   2. non-fallback claims, strictest category first (safety after profile overrides);
+   3. fallback claims, strictest category first;
+   4. `pushScope` rules.
+6. If a `skip` rule holds, stop.
+7. **Claims.** The first claim that holds makes *E* a candidate, with that rule's
+   category and `set` variables, and the visit stops. Later rules are not tried, so
+   when several claims would hold, the strictest decides.
 8. **Scopes.** One scope instance per scope name is created at *E*. If several
-   rules push the same name, their `set` maps are merged.
+   rules push the same name, their `set` maps are merged; a conflict on the same
+   variable is resolved in favour of the rule whose qualified id sorts first.
 9. If *E* is a directory and *d* < `maxDepth`, visit each child at depth *d*+1
    with the extended scope stack.
-
-Wherever values merge (steps 7 and 8), a conflict on the same variable is resolved
-in favour of the rule whose qualified id sorts first.
 
 ### 7.2 Guarantees
 
@@ -336,7 +337,6 @@ Rule sets shipped with MacReaper follow this style; user rule sets SHOULD.
 - Use the short forms (`claim: target`, `pushScope: project`) when nothing else is set.
 - Rules are ordered: skips, then scope-pushing rules, then claims.
 - YAML comments explain *why* a guard exists; `description` explains *what* the rule does.
-- Project scopes are named `project` and set `project: "{name}"`.
 
 ---
 

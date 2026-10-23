@@ -33,6 +33,34 @@ extension Safety {
         case .dangerous: .red
         }
     }
+
+    /// What the safety level means for the user, and whether the scan marked the candidate.
+    func explanation(isMarkedAutomatically: Bool) -> String {
+        let meaning = switch self {
+        case .safe: String(localized: "Can be recreated without effort, for example by building again.")
+        case .review: String(localized: "Probably fine to delete, but you should decide.")
+        case .dangerous: String(localized: "May hold the only copy of something. Check it before deleting.")
+        }
+        let marking = isMarkedAutomatically
+            ? String(localized: "Marked for cleanup automatically.")
+            : String(localized: "Not marked automatically.")
+        return meaning + " " + marking
+    }
+}
+
+/// A safety level as a colored capsule.
+struct SafetyBadge: View {
+
+    let safety: Safety
+
+    var body: some View {
+        Text(safety.title)
+            .font(.caption.bold())
+            .foregroundStyle(safety.color)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(safety.color.opacity(0.15), in: Capsule())
+    }
 }
 
 extension FSError {

@@ -40,7 +40,7 @@ struct BenchmarkTests {
         if sizes {
             var byCategory: [String: (count: Int, allocated: UInt64, shared: UInt64)] = [:]
             for candidate in result.candidates {
-                let name = candidate.categories.map { rules[$0].name }.joined(separator: "+")
+                let name = rules[candidate.category].name
                 let size = candidate.size ?? CandidateSize()
                 byCategory[name, default: (0, 0, 0)].count += 1
                 byCategory[name, default: (0, 0, 0)].allocated += size.allocated
