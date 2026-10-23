@@ -7,22 +7,27 @@ description: Xcode's per-user data under ~/Library/Developer.
 categories:
   derived-data:
     title: DerivedData
+    symbol: hammer
     detail: Indexes and build products for a project that still exists. Rebuilding takes time.
     safety: review
   derived-data-orphaned:
     title: DerivedData (project gone)
+    symbol: questionmark.folder
     detail: The workspace this DerivedData belongs to no longer exists.
     safety: safe
   device-support-old:
     title: Old device support files
+    symbol: iphone
     detail: Symbols for OS versions superseded by a newer one. Re-downloaded if that device reconnects.
     safety: safe
   archives:
     title: Xcode archives
+    symbol: archivebox
     detail: Contain the dSYMs needed to symbolicate crash reports of shipped builds.
     safety: dangerous
   simulator-caches:
     title: Simulator caches
+    symbol: ipad.and.iphone
     safety: safe
 
 rules:

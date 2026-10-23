@@ -140,6 +140,8 @@ public struct CompiledCategory: Sendable {
     /// The qualified id.
     public let name: String
     public let title: String
+    /// The name of an SF Symbol for the app to show with the category.
+    public let symbol: String?
     public let detail: String?
     /// The category's safety, made stricter by the profile where it says so.
     public let safety: Safety
@@ -156,6 +158,7 @@ extension CompiledCategory {
             id: id,
             name: name,
             title: category.title,
+            symbol: category.symbol,
             detail: category.detail,
             safety: max(category.safety, override ?? category.safety)
         )

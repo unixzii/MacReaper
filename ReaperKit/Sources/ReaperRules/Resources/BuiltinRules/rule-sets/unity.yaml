@@ -7,10 +7,12 @@ description: Unity project caches.
 categories:
   library:
     title: Unity Library cache
+    symbol: cube
     detail: Re-imported on next open; large projects can take a long time.
     safety: review
   temp:
     title: Unity temp and logs
+    symbol: clock
     safety: safe
 
 rules:

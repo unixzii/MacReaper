@@ -7,17 +7,21 @@ description: User-level macOS leftovers.
 categories:
   diagnostic-reports:
     title: Old crash and diagnostic reports
+    symbol: exclamationmark.triangle
     safety: safe
   old-installers:
     title: Old installers in Downloads
+    symbol: arrow.down.circle
     detail: Disk images and packages not modified for 60 days.
     safety: review
   ios-backup:
     title: iPhone and iPad backup
+    symbol: iphone
     detail: May be the only copy of a device's data.
     safety: dangerous
   jetbrains-old-caches:
     title: Caches of old JetBrains IDE versions
+    symbol: clock.arrow.circlepath
     safety: safe
 
 rules:

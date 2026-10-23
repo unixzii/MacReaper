@@ -7,6 +7,7 @@ description: Maven build output.
 categories:
   target:
     title: Maven build output
+    symbol: hammer
     safety: safe
 
 rules:

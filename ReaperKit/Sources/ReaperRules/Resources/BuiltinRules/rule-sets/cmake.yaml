@@ -7,13 +7,16 @@ description: CMake build trees, recognised from the build side via CMakeCache.tx
 categories:
   build:
     title: CMake build directory
+    symbol: hammer
     detail: Out-of-source build tree whose source project still exists.
     safety: safe
   build-orphaned:
     title: CMake build directory (source gone)
+    symbol: questionmark.folder
     safety: safe
   in-source-files:
     title: CMake files in a source tree
+    symbol: doc.on.doc
     detail: In-source build; only CMake's own bookkeeping is offered, never the folder.
     safety: review
 

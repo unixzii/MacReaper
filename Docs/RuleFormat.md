@@ -71,6 +71,7 @@ reload validates everything again. A reload never affects a scan in progress.
 categories:
   target:
     title: Rust build output    # required, shown as the group heading
+    symbol: hammer              # optional: an SF Symbol name; apps fall back to a generic one
     detail: Cargo's target directory. Rebuilt on the next cargo build.   # optional
     safety: safe                # required: safe | review | dangerous
 ```
@@ -331,6 +332,7 @@ Rule sets shipped with MacReaper follow this style; user rule sets SHOULD.
 - Top-level key order: `format`, `id`, `title`, `description`, `requires`,
   `categories`, `rules` (rule sets) and `format`, `id`, `title`, `roots`, `exclude`,
   `maxDepth`, `ruleSets`, `preselect`, `categorySafety` (profiles).
+- Category key order: `title`, `symbol`, `detail`, `safety`. Every category sets `symbol`.
 - Rule key order: `id`, `description`, `when`, `action`.
 - Condition key order: `kind`, `name`, `path`, `capture`, `contains`,
   `containsAny`, `sibling`, `scope`, `olderThan`, `check`.

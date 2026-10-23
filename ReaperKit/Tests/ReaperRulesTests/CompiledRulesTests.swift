@@ -118,6 +118,17 @@ struct CompiledRulesTests {
         #expect(CompiledRules(loaded, home: Self.home).categories.map(\.safety) == [.dangerous])
     }
 
+    @Test("Categories keep their symbol, which is optional")
+    func symbols() throws {
+        let withSymbol = Self.minimalRuleSet.replacingOccurrences(of: "c: { title: C, safety: safe }", with: "c: { title: C, symbol: hammer, safety: safe }")
+
+        let plain = try loadProfile(ruleSet: Self.minimalRuleSet).get()
+        let symbolic = try loadProfile(ruleSet: withSymbol).get()
+
+        #expect(CompiledRules(plain, home: Self.home).categories.map(\.symbol) == [nil])
+        #expect(CompiledRules(symbolic, home: Self.home).categories.map(\.symbol) == ["hammer"])
+    }
+
     static let minimalRuleSet = """
         format: 1
         id: t

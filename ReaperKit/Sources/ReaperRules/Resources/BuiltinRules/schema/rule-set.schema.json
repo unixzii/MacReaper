@@ -34,6 +34,7 @@
       "required": ["title", "safety"],
       "properties": {
         "title": { "type": "string", "minLength": 1 },
+        "symbol": { "type": "string", "minLength": 1, "description": "The name of an SF Symbol the app shows with the category." },
         "detail": { "type": "string" },
         "safety": { "$ref": "#/$defs/safety" }
       }

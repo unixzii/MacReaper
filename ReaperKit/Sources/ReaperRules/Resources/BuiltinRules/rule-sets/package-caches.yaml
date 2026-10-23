@@ -7,10 +7,12 @@ description: Global download caches and stores of package managers.
 categories:
   download-cache:
     title: Package manager cache
+    symbol: tray.and.arrow.down
     detail: Downloaded archives; fetched again when needed.
     safety: safe
   store:
     title: Package store
+    symbol: archivebox
     detail: Shared or hard-linked stores that projects may rely on. Prefer the tool's own prune command.
     safety: review
 

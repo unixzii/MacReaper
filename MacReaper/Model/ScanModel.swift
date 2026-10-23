@@ -192,6 +192,13 @@ final class ScanModel {
         }
     }
 
+    /// Marks `paths` as their profile suggests, undoing the user's changes to them.
+    func restoreSuggestedMarks(_ paths: some Sequence<FilePath>) {
+        for path in paths {
+            markOverrides[path] = nil
+        }
+    }
+
     /// Marks all of `paths` unless they all are marked already, in which case unmarks them.
     func toggleMarks(_ paths: Set<FilePath>) {
         let affected = candidates.filter { paths.contains($0.path) }

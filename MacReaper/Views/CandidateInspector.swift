@@ -110,14 +110,14 @@ private struct SizeSections: View {
                     Explanation(
                         title: "Hard links",
                         systemImage: "link",
-                        text: "\(size.hardLinkedFiles) files (\(size.hardLinkedBytes.formattedBytes)) also have hard links elsewhere. A hard-linked file is one file under several names: deleting this removes the names here, but the file stays until every name is deleted."
+                        text: "\(size.hardLinkedFiles.formatted()) files (\(size.hardLinkedBytes.formattedBytes)) also have hard links elsewhere. A hard-linked file is one file under several names: deleting this removes the names here, but the file stays until every name is deleted."
                     )
                 }
                 if size.clonedBytes > 0 {
                     Explanation(
                         title: "Clones",
                         systemImage: "square.on.square",
-                        text: "\(size.clonedFiles) files (\(size.clonedBytes.formattedBytes)) are copies that share their data with other copies. On APFS, a copied file shares its data with the original until one of them changes, so deleting a copy frees only what no other copy uses."
+                        text: "\(size.clonedFiles.formatted()) files (\(size.clonedBytes.formattedBytes)) are copies that share their data with other copies. On APFS, a copied file shares its data with the original until one of them changes, so deleting a copy frees only what no other copy uses."
                     )
                 }
             }
@@ -161,7 +161,7 @@ private struct ReasonSection: View {
         Section("Why It’s Here") {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(category.title)
+                    Label(category.title, systemImage: category.displaySymbol)
                         .bold()
                     Spacer()
                     SafetyBadge(safety: candidate.safety)

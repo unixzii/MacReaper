@@ -1,3 +1,4 @@
+import AppKit
 import ReaperFS
 import ReaperRules
 import SwiftUI
@@ -13,6 +14,17 @@ extension Duration {
 
     var formattedSeconds: String {
         formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated, fractionalPart: .show(length: 1)))
+    }
+}
+
+extension CompiledCategory {
+
+    /// The category's SF Symbol, or a folder when it names none, or one this system lacks.
+    var displaySymbol: String {
+        if let symbol, NSImage(systemSymbolName: symbol, accessibilityDescription: nil) != nil {
+            return symbol
+        }
+        return "folder"
     }
 }
 

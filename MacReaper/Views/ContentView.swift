@@ -16,14 +16,26 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 250)
         } detail: {
             detail
-                .inspector(isPresented: $showsInspector) {
-                    CandidateInspector(model: model)
-                        .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
+        }
+        // In the sidebar: a toolbar field would sit at the toolbar's trailing end, which belongs
+        // to the inspector.
+        .searchable(text: $model.searchText, placement: .sidebar, prompt: "Filter Candidates")
+        // On the split view rather than its detail, the inspector is a full-height column with
+        // its own part of the toolbar, as in Xcode.
+        .inspector(isPresented: $showsInspector) {
+            CandidateInspector(model: model)
+                .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
+                .toolbar {
+                    Spacer()
+                    Button("Inspector", systemImage: "sidebar.trailing") {
+                        showsInspector.toggle()
+                    }
+                    .help("Hide the inspector")
                 }
         }
         .navigationTitle("MacReaper")
-        .navigationSubtitle(model.profile?.title ?? "")
-        .searchable(text: $model.searchText, placement: .toolbar, prompt: "Filter Candidates")
+        // The profile picker says what is being scanned, and the activity view takes the middle.
+        .toolbar(removing: .title)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Picker("Profile", selection: $model.profileID) {
@@ -35,6 +47,9 @@ struct ContentView: View {
                 .disabled(model.isScanning)
                 .help("The rules to scan with")
             }
+            ToolbarItem(placement: .principal) {
+                ScanActivity(model: model)
+            }
             ToolbarItem(placement: .primaryAction) {
                 if model.isScanning {
                     Button("Stop", systemImage: "stop.fill", action: model.stop)
@@ -44,12 +59,6 @@ struct ContentView: View {
                         .disabled(!model.canScan)
                         .help("Scan for candidates")
                 }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button("Inspector", systemImage: "sidebar.trailing") {
-                    showsInspector.toggle()
-                }
-                .help(showsInspector ? "Hide the inspector" : "Show the inspector")
             }
         }
     }
@@ -61,11 +70,8 @@ struct ContentView: View {
                 .overlay {
                     EmptyResultsView(model: model, session: session)
                 }
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    ScanStatusBar(model: model, session: session)
-                }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    MarkedSummaryBar(model: model)
+                    CandidateActionBar(model: model)
                 }
         } else {
             ReadyView(model: model)

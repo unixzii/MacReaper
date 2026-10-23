@@ -7,9 +7,11 @@ description: MSBuild bin and obj output.
 categories:
   obj:
     title: MSBuild intermediate output
+    symbol: square.stack.3d.up
     safety: safe
   bin:
     title: MSBuild binaries
+    symbol: gearshape.2
     safety: review
 
 rules:

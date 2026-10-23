@@ -9,6 +9,7 @@ struct RuleStyleTests {
 
     static let ruleSetKeys = ["format", "id", "title", "description", "requires", "categories", "rules"]
     static let profileKeys = ["format", "id", "title", "roots", "exclude", "maxDepth", "ruleSets", "preselect", "categorySafety"]
+    static let categoryKeys = ["title", "symbol", "detail", "safety"]
     static let ruleKeys = ["id", "description", "when", "action"]
     static let conditionKeys = [
         "kind", "name", "path", "capture", "contains", "containsAny", "sibling", "scope", "olderThan", "check",
@@ -23,6 +24,13 @@ struct RuleStyleTests {
 
         let document = try #require(try Yams.compose(yaml: text)?.mapping)
         #expect(Self.isOrdered(Self.keys(document), by: Self.ruleSetKeys), "top-level key order")
+
+        for (name, category) in document["categories"]?.mapping ?? [:] {
+            let fields = try #require(category.mapping)
+            let categoryID = name.string ?? "?"
+            #expect(Self.isOrdered(Self.keys(fields), by: Self.categoryKeys), "\(categoryID): category key order")
+            #expect(fields["symbol"] != nil, "\(categoryID): no symbol")
+        }
 
         var stage = 0
         for rule in try #require(document["rules"]?.sequence) {

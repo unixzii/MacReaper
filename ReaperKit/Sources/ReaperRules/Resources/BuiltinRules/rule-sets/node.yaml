@@ -7,10 +7,12 @@ description: JavaScript dependencies and framework build caches.
 categories:
   modules:
     title: node_modules
+    symbol: shippingbox
     detail: Installed packages. Restored by npm, yarn or pnpm install.
     safety: safe
   framework-cache:
     title: Framework build cache
+    symbol: bolt
     detail: Next.js, Nuxt, Turbo, Parcel, SvelteKit and Vite caches.
     safety: safe
 

@@ -7,9 +7,11 @@ description: Gradle (including Android) build output.
 categories:
   build:
     title: Gradle build output
+    symbol: hammer
     safety: safe
   project-cache:
     title: Gradle project cache
+    symbol: archivebox
     detail: .gradle and Android .cxx folders next to a Gradle build script.
     safety: safe
 
