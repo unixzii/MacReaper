@@ -1,3 +1,4 @@
+import Darwin
 import ReaperRules
 import Testing
 
@@ -90,9 +91,27 @@ struct GlobMatchingTests {
         ("/u/*DeviceSupport/*", "/u/iOS DeviceSupport/17.4 (21E219)", true),
         ("/u/?", "/u//", false),
         ("/u/[!x]", "/u//", false),
+        ("/u/Caf\u{E9}/*", "/u/Cafe\u{301}/menu", true),
+        ("/u/Caf\u{E9}*/x", "/u/Cafe\u{301}s/x", true),
     ])
     func paths(pattern: String, subject: String, expected: Bool) throws {
         #expect(try Glob(pattern, flavor: .path).matches(subject) == expected)
+    }
+
+    /// fnmatch(3) with `FNM_PATHNAME` treats `*`, `?` and `[...]` as path globs do, never
+    /// matching `/`, so it can check the shortcuts taken for `dir/*` and literal prefixes.
+    @Test("Path globs agree with fnmatch", arguments: ["/u/a/*", "/u/ab/*", "/u/*/b", "/u/a*/*", "/u/[ab]/*", "/u/a?/c*", "/u/a/b"])
+    func agreesWithFnmatch(pattern: String) throws {
+        let glob = try Glob(pattern, flavor: .path)
+        let components = ["u", "a", "b", "ab", "ac", "c", "cx", ""]
+        var generator = SplitMix64(seed: 7)
+
+        for _ in 0..<2_000 {
+            let count = Int(generator.next() % 4) + 1
+            let subject = "/" + (0..<count).map { _ in components[Int(generator.next() % UInt64(components.count))] }.joined(separator: "/")
+            let expected = fnmatch(pattern, subject, FNM_PATHNAME) == 0
+            #expect(glob.matches(subject) == expected, "\(pattern) against \(subject)")
+        }
     }
 
     @Test("Shapes")

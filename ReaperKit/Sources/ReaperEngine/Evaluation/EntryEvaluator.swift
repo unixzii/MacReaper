@@ -59,18 +59,20 @@ public struct EntryEvaluator: Sendable {
     }
 
     public func evaluate(_ entry: EntryContext) -> EntryOutcome {
-        let index: RuleIndex
+        // Looked up in place: copying an index retains every table in it.
+        let candidates: RuleSelection
         switch entry.attributes.kind {
-        case .directory: index = rules.directoryIndex
-        case .file: index = rules.fileIndex
-        case .symlink, .other: return .descend(entry.scopes)
+        case .directory:
+            candidates = rules.directoryIndex.candidates(
+                name: entry.name,
+                path: entry.pathString,
+                children: (entry.children?.entries ?? []).lazy.map(\.name)
+            )
+        case .file:
+            candidates = rules.fileIndex.candidates(name: entry.name, path: entry.pathString, children: EmptyCollection())
+        case .symlink, .other:
+            return .descend(entry.scopes)
         }
-
-        let candidates = index.candidates(
-            name: entry.name,
-            path: entry.pathString,
-            children: entry.children?.entries.map(\.name) ?? []
-        )
         var checks = CheckCache()
         var held: [HeldRule] = []
         for id in candidates {

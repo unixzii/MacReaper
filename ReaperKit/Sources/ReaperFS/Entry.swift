@@ -82,15 +82,19 @@ public struct DirectoryListing: Sendable {
 
     public let entries: [EntryAttributes]
     public let failures: [EntryFailure]
-    private let names: Set<String>
+    /// The names, for listings too long to search one by one; `nil` for shorter ones.
+    private let names: Set<String>?
+
+    /// Listings longer than this get a set of names to look them up in.
+    static let nameSetThreshold = 32
 
     public init(entries: [EntryAttributes], failures: [EntryFailure] = []) {
         self.entries = entries
         self.failures = failures
-        self.names = Set(entries.lazy.map(\.name))
+        self.names = entries.count > Self.nameSetThreshold ? Set(entries.lazy.map(\.name)) : nil
     }
 
     public func contains(_ name: String) -> Bool {
-        names.contains(name)
+        names?.contains(name) ?? entries.contains { $0.name == name }
     }
 }

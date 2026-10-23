@@ -50,7 +50,7 @@ struct DirectoryVisitor: Sendable {
 
         return outermost.compactMap { root -> WorkItem? in
             let path = FilePath(root)
-            guard let name = path.lastComponent?.string, !isExcluded(path) else {
+            guard let name = path.lastComponent?.string, !isExcluded(root) else {
                 return nil
             }
             let siblings: DirectoryListing
@@ -120,8 +120,10 @@ struct DirectoryVisitor: Sendable {
 
         var next: [Work] = []
         var claimedFiles: [String] = []
+        let directory = item.path.string
         for child in children.entries {
-            let path = item.path.appending(child.name)
+            // Built as a string: a `FilePath` is needed only for the directories still to visit.
+            let path = directory == "/" ? "/" + child.name : directory + "/" + child.name
             switch child.kind {
             case .symlink:
                 accumulator.stats.symlinks += 1
@@ -134,7 +136,7 @@ struct DirectoryVisitor: Sendable {
                 }
                 accumulator.stats.files += 1
                 let file = EntryContext(
-                    path: path,
+                    pathString: path,
                     attributes: child,
                     depth: item.depth + 1,
                     children: nil,
@@ -157,7 +159,7 @@ struct DirectoryVisitor: Sendable {
                     accumulator.stats.excluded += 1
                 } else {
                     next.append(.visit(WorkItem(
-                        path: path,
+                        path: FilePath(path),
                         attributes: child,
                         depth: item.depth + 1,
                         scopes: scopes,
@@ -176,7 +178,7 @@ struct DirectoryVisitor: Sendable {
         return next
     }
 
-    private func isExcluded(_ path: FilePath) -> Bool {
-        !rules.exclude.isEmpty && rules.exclude.contains { $0.matches(path.string) }
+    private func isExcluded(_ path: String) -> Bool {
+        !rules.exclude.isEmpty && rules.exclude.contains { $0.matches(path) }
     }
 }

@@ -5,7 +5,9 @@ import System
 /// its own listing if it is a directory, and the scopes it inherits.
 public struct EntryContext: Sendable {
 
-    public let path: FilePath
+    /// The absolute path. Kept as a string, which globs and templates use, because most entries
+    /// never need a `FilePath`.
+    public let pathString: String
     public let attributes: EntryAttributes
     /// Distance from the scan root, which has depth 0.
     public let depth: Int
@@ -14,8 +16,6 @@ public struct EntryContext: Sendable {
     /// The listing of the entry's parent, which includes the entry itself.
     public let siblings: DirectoryListing
     public let scopes: ScopeStack
-    /// `path` as a string, computed once because globs and templates use it repeatedly.
-    public let pathString: String
 
     public init(
         path: FilePath,
@@ -25,13 +25,34 @@ public struct EntryContext: Sendable {
         siblings: DirectoryListing,
         scopes: ScopeStack
     ) {
-        self.path = path
+        self.init(
+            pathString: path.string,
+            attributes: attributes,
+            depth: depth,
+            children: children,
+            siblings: siblings,
+            scopes: scopes
+        )
+    }
+
+    init(
+        pathString: String,
+        attributes: EntryAttributes,
+        depth: Int,
+        children: DirectoryListing?,
+        siblings: DirectoryListing,
+        scopes: ScopeStack
+    ) {
+        self.pathString = pathString
         self.attributes = attributes
         self.depth = depth
         self.children = children
         self.siblings = siblings
         self.scopes = scopes
-        self.pathString = path.string
+    }
+
+    public var path: FilePath {
+        FilePath(pathString)
     }
 
     public var name: String {

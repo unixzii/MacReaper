@@ -58,7 +58,7 @@ public struct RuleIndex: Sendable {
     ///   - name: The entry's name.
     ///   - path: The entry's absolute path.
     ///   - children: The names of the entry's children; empty for files.
-    public func candidates(name: String, path: String, children: [String]) -> RuleSelection {
+    public func candidates(name: String, path: String, children: some Collection<String>) -> RuleSelection {
         var selection = RuleSelection(capacity: capacity)
         let name = name.precomposedForMatching
         selection.insert(contentsOf: byName[name])
@@ -179,7 +179,7 @@ public struct RuleIndex: Sendable {
         }
     }
 
-    private static func holds(_ condition: Residual, name: String, path: String, children: [String]) -> Bool {
+    private static func holds(_ condition: Residual, name: String, path: String, children: some Collection<String>) -> Bool {
         switch condition {
         case .name(let globs):
             globs.contains { $0.matches(name) }
@@ -222,24 +222,34 @@ private struct SuffixTable: Sendable {
 
 /// A set of rule ids. Iterating it yields ids in ascending order, which is the order of the
 /// rules' qualified ids.
+///
+/// The first 64 ids are kept inline, so profiles of up to 64 rules never allocate one.
 public struct RuleSelection: Sequence, Sendable {
 
-    private var words: [UInt64]
+    private var low: UInt64 = 0
+    /// Ids from 64 up, 64 to a word.
+    private var high: [UInt64]
 
     init(capacity: Int) {
-        words = Array(repeating: 0, count: (capacity + 63) / 64)
+        high = capacity > 64 ? Array(repeating: 0, count: (capacity - 1) / 64) : []
     }
 
     public var isEmpty: Bool {
-        words.allSatisfy { $0 == 0 }
+        low == 0 && high.allSatisfy { $0 == 0 }
     }
 
     public func contains(_ rule: RuleID) -> Bool {
-        words[rule.index / 64] & (1 << UInt64(rule.index % 64)) != 0
+        let bit: UInt64 = 1 << UInt64(rule.index % 64)
+        return rule.index < 64 ? low & bit != 0 : high[rule.index / 64 - 1] & bit != 0
     }
 
     mutating func insert(_ rule: RuleID) {
-        words[rule.index / 64] |= 1 << UInt64(rule.index % 64)
+        let bit: UInt64 = 1 << UInt64(rule.index % 64)
+        if rule.index < 64 {
+            low |= bit
+        } else {
+            high[rule.index / 64 - 1] |= bit
+        }
     }
 
     mutating func insert(contentsOf rules: [RuleID]?) {
@@ -249,27 +259,28 @@ public struct RuleSelection: Sequence, Sendable {
     }
 
     public func makeIterator() -> Iterator {
-        Iterator(words: words)
+        Iterator(low: low, high: high)
     }
 
     public struct Iterator: IteratorProtocol {
 
-        private let words: [UInt64]
+        private let high: [UInt64]
+        /// The word being iterated: 0 for `low`, then 1 + an index into `high`.
         private var wordIndex = 0
         private var remaining: UInt64
 
-        init(words: [UInt64]) {
-            self.words = words
-            remaining = words.first ?? 0
+        init(low: UInt64, high: [UInt64]) {
+            self.high = high
+            remaining = low
         }
 
         public mutating func next() -> RuleID? {
             while remaining == 0 {
-                wordIndex += 1
-                guard wordIndex < words.count else {
+                guard wordIndex < high.count else {
                     return nil
                 }
-                remaining = words[wordIndex]
+                remaining = high[wordIndex]
+                wordIndex += 1
             }
             let bit = remaining.trailingZeroBitCount
             remaining &= remaining - 1

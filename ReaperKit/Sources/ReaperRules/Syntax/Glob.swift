@@ -179,7 +179,19 @@ extension Glob {
             return subject == literal
         case .suffix(let suffix):
             return subject.utf8.count >= suffix.utf8.count && subject.utf8.reversed().starts(with: suffix.utf8.reversed())
-        case .child, .other:
+        case .child(let parent):
+            // `parent/*`: everything after `parent/` must be free of slashes.
+            let bytes = subject.utf8
+            guard bytes.count > parent.utf8.count, bytes.starts(with: parent.utf8) else {
+                return false
+            }
+            let rest = bytes.dropFirst(parent.utf8.count)
+            return rest.first == UInt8(ascii: "/") && !rest.dropFirst().contains(UInt8(ascii: "/"))
+        case .other(let literalPrefix):
+            // Most subjects differ within the literal prefix, which needs no matching.
+            guard subject.utf8.starts(with: literalPrefix.utf8) else {
+                return false
+            }
             return Self.match(tokens, Array(subject.unicodeScalars))
         }
     }
@@ -188,9 +200,12 @@ extension Glob {
     /// says whether the tokens so far can consume exactly the first `i` scalars.
     private static func match(_ tokens: [Token], _ subject: [Unicode.Scalar]) -> Bool {
         var reachable = [Bool](repeating: false, count: subject.count + 1)
+        var next = reachable
         reachable[0] = true
         for token in tokens {
-            var next = [Bool](repeating: false, count: subject.count + 1)
+            for index in next.indices {
+                next[index] = false
+            }
             switch token {
             case .anyRun, .anyPath:
                 var running = false
@@ -207,7 +222,7 @@ extension Glob {
             guard next.contains(true) else {
                 return false
             }
-            reachable = next
+            swap(&reachable, &next)
         }
         return reachable[subject.count]
     }

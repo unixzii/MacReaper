@@ -1,3 +1,4 @@
+import Foundation
 import ReaperRules
 import Testing
 
@@ -55,6 +56,31 @@ struct RuleIndexTests {
         let ids = Array(candidates(for: Probe(name: "target", children: ["Cargo.toml", "package.json"])))
 
         #expect(ids == ids.sorted())
+    }
+
+    @Test("Selections hold rule ids past the first 64")
+    func manyRules() throws {
+        let rules = (0..<150).map { index in
+            "  - id: t.r\(String(format: "%03d", index))\n    when:\n      name: d\(index)\n    action:\n      claim: a"
+        }
+        let ruleSet = """
+            format: 1
+            id: t
+            title: T
+            description: Many rules.
+            categories:
+              a:
+                title: A
+                safety: safe
+            rules:
+
+            """ + rules.joined(separator: "\n") + "\n"
+        let compiled = CompiledRules(try loadProfile(ruleSet: ruleSet).get(), home: "/Users/test")
+
+        for index in [0, 63, 64, 127, 128, 149] {
+            let found = compiled.directoryIndex.candidates(name: "d\(index)", path: "/Users/test/d\(index)", children: [String]())
+            #expect(found.map { compiled[$0].name } == [String(format: "t.r%03d", index)])
+        }
     }
 
     /// The index must never leave out a rule whose name, path and child conditions all hold.
