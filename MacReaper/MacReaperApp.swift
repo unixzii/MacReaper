@@ -6,14 +6,16 @@ import System
 struct MacReaperApp: App {
 
     @State private var model: ScanModel = {
-        // Resolved, so that `~` is spelled the way the walk spells paths.
-        let home = FileManager.default.homeDirectoryForCurrentUser.resolvingSymlinksInPath().path(percentEncoded: false)
-        let trimmed = home.hasSuffix("/") ? String(home.dropLast()) : home
+        // Resolved by realpath(3) as the walk resolves its root, so that `~` is spelled the way
+        // the walk spells paths. URL's resolvingSymlinksInPath would drop a leading /private.
+        let fileSystem = DarwinFileSystem()
+        let given = FilePath(FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false))
+        let home = (try? fileSystem.resolvingSymlinks(given)) ?? given
         return ScanModel(
             library: .builtin(),
-            fileSystem: DarwinFileSystem(),
-            home: FilePath(trimmed),
-            locations: ScanLocation.standard(home: FilePath(trimmed))
+            fileSystem: fileSystem,
+            home: home,
+            locations: ScanLocation.standard(home: home)
         )
     }()
 

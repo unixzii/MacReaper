@@ -164,16 +164,10 @@ private struct ReasonSection: View {
                     Label(category.title, systemImage: category.displaySymbol)
                         .bold()
                     Spacer()
-                    SafetyBadge(safety: candidate.safety)
+                    SafetyBadge(safety: candidate.safety, isMarkedAutomatically: candidate.isPreselected)
                 }
                 if let detail = category.detail {
                     Text(detail)
-                        .foregroundStyle(.secondary)
-                }
-                HStack(alignment: .firstTextBaseline) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                    Text(candidate.safety.explanation(isMarkedAutomatically: candidate.isPreselected))
                         .foregroundStyle(.secondary)
                 }
             }
