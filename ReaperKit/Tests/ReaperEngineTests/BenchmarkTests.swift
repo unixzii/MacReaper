@@ -1,10 +1,13 @@
 import Foundation
 import ReaperEngine
 import ReaperFS
+import ReaperFSTesting
 import ReaperRules
+import System
 import Testing
 
-/// Scans the real `~/Developer` and `~/Library/Developer`, read-only, with the shipped rules.
+/// Scans the real `~/Developer`, read-only, with the shipped rules, and
+/// deletes a generated tree in a temporary directory.
 /// Opt in with `REAPER_BENCH=1 swift test -c release --filter BenchmarkTests`.
 @Suite("Benchmark", .enabled(if: ProcessInfo.processInfo.environment["REAPER_BENCH"] != nil), .serialized)
 struct BenchmarkTests {
@@ -17,16 +20,10 @@ struct BenchmarkTests {
 
     @Test("Real folders", arguments: configurations)
     func realFolders(workers: Int, sizes: Bool) async throws {
-        var sources = try RuleSources.builtin()
-        let profile = sources.profiles["developer"]!.text
-        sources.profiles["developer"]!.text = profile.replacingOccurrences(
-            of: "roots: [~/Developer, ~/Projects, ~/src]",
-            with: "roots: [~/Developer, ~/Library/Developer]"
-        )
-        let loaded = try RuleLoader.loadProfile("developer", from: sources)
-        let rules = CompiledRules(loaded, home: NSHomeDirectory())
+        let rules = CompiledRules(try RuleLoader.load(RuleSources.builtin()), home: NSHomeDirectory())
+        let root = FilePath(NSHomeDirectory()).appending("Developer")
 
-        let result = try await DiskScanner(rules: rules, fileSystem: DarwinFileSystem(), sizesCandidates: sizes, workerCount: workers).scan()
+        let result = try await DiskScanner(rules: rules, root: root, fileSystem: DarwinFileSystem(), sizesCandidates: sizes, workerCount: workers).scan()
 
         let stats = result.stats
         let seconds = Double(stats.duration.components.seconds) + Double(stats.duration.components.attoseconds) / 1e18
@@ -54,5 +51,38 @@ struct BenchmarkTests {
             print("  \(incomplete) candidates incomplete, \(result.errors.count) errors")
         }
         #expect(!result.candidates.isEmpty)
+    }
+
+    /// 96,000 small files in 12,000 folders, like a large `node_modules`.
+    @Test("Deleting many small files", arguments: [1, Cleanup.defaultThreadCount])
+    func deleting(threads: Int) async throws {
+        let temporary = try TemporaryDirectory()
+        let modules = temporary.path.appending("app/node_modules")
+        var folders = [modules]
+        var index = 0
+        while folders.count < 12_000 {
+            for child in 0..<6 where folders.count < 12_000 {
+                folders.append(folders[index].appending("dir\(child)"))
+            }
+            index += 1
+        }
+        let contents = Data(repeating: 0x61, count: 2_000)
+        for folder in folders {
+            try FileManager.default.createDirectory(atPath: folder.string, withIntermediateDirectories: true)
+            for file in 0..<8 {
+                FileManager.default.createFile(atPath: folder.appending("file\(file).js").string, contents: contents)
+            }
+        }
+        let rules = CompiledRules(
+            try loadInlineRules(rules: "  - { id: t.modules, when: { name: node_modules }, action: { claim: a } }"),
+            home: temporary.path.string
+        )
+        let scan = try await DiskScanner(rules: rules, root: temporary.path, fileSystem: DarwinFileSystem()).scan()
+
+        let result = await Cleanup(threadCount: threads).run(scan.candidates)
+
+        let seconds = Double(result.duration.components.seconds) + Double(result.duration.components.attoseconds) / 1e18
+        print("threads \(threads): deleted \(scan.candidates.first?.size?.files ?? 0) files in \(String(format: "%.2f", seconds)) s")
+        #expect(result.removed.count == 1)
     }
 }

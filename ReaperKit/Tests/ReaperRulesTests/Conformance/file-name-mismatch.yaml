@@ -4,14 +4,6 @@ expect:
   file: rule-sets/u.yaml
   line: 2
 files:
-  profiles/p.yaml: |
-    format: 1
-    id: p
-    title: P
-    roots: ["~"]
-    maxDepth: 3
-    ruleSets: [u]
-    preselect: [safe]
   rule-sets/u.yaml: |
     format: 1
     id: t

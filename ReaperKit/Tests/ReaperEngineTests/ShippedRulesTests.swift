@@ -3,7 +3,7 @@ import ReaperFSTesting
 import ReaperRules
 import Testing
 
-/// The shipped `home` profile, evaluated entry by entry on a small in-memory home folder.
+/// The shipped rules, evaluated entry by entry on a small in-memory home folder.
 @Suite("Shipped rules")
 struct ShippedRulesTests {
 
@@ -12,7 +12,7 @@ struct ShippedRulesTests {
     let harness: Harness
 
     init() throws {
-        harness = try Harness(shippedProfile: "home") {
+        harness = try Harness.shipped {
             File("Developer/dua-cli/Cargo.toml")
             File("Developer/dua-cli/target/CACHEDIR.TAG", contents: Self.tag)
             File("Developer/napi-mod/Cargo.toml")

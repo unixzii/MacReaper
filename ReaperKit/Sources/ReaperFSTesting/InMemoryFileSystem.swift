@@ -143,6 +143,11 @@ public struct InMemoryFileSystem: FileSystem {
         (try? resolve(path, followingFinalSymlink: false)) != nil
     }
 
+    public func identity(at path: FilePath) throws(FSError) -> (identity: FileIdentity, kind: EntryKind) {
+        let node = nodes[try resolve(path, followingFinalSymlink: false)]!
+        return (node.identity, attributes(of: node, named: "", options: []).kind)
+    }
+
     public func readFile(at path: FilePath, maxBytes: Int) throws(FSError) -> [UInt8] {
         let node = nodes[try resolve(path, followingFinalSymlink: false)]!
         switch node.kind {

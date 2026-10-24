@@ -16,6 +16,10 @@ public protocol FileSystem: Sendable {
     /// Whether anything, including a dangling symlink, exists at `path`.
     func exists(at path: FilePath) -> Bool
 
+    /// The identity and kind of what is at `path`. Unlike its path, an item's identity is the
+    /// same however a path spells it, through symlinks or firmlinks.
+    func identity(at path: FilePath) throws(FSError) -> (identity: FileIdentity, kind: EntryKind)
+
     /// Reads at most `maxBytes` bytes from the start of the file at `path`.
     func readFile(at path: FilePath, maxBytes: Int) throws(FSError) -> [UInt8]
 

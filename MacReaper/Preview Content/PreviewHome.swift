@@ -10,7 +10,12 @@ extension ScanModel {
     static func preview() -> ScanModel {
         let home: FilePath = "/Users/preview"
         let fileSystem = InMemoryFileSystem(root: home, tree: PreviewHome.tree)
-        return ScanModel(library: .builtin(home: home.string), fileSystem: fileSystem, home: home)
+        return ScanModel(
+            library: .builtin(),
+            fileSystem: fileSystem,
+            home: home,
+            locations: [ScanLocation(folder: home, home: home)]
+        )
     }
 }
 

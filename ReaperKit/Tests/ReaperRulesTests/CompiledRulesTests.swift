@@ -8,7 +8,7 @@ struct CompiledRulesTests {
     static let home = "/Users/test"
 
     static func shipped() throws -> CompiledRules {
-        let loaded = try RuleLoader.loadProfile("home", from: RuleSources.builtin())
+        let loaded = try RuleLoader.load(RuleSources.builtin())
         return CompiledRules(loaded, home: home)
     }
 
@@ -67,7 +67,7 @@ struct CompiledRulesTests {
 
     @Test("Scope variables and roots resolve to the scope's id")
     func scopeVariables() throws {
-        let loaded = try loadProfile(ruleSet: """
+        let loaded = try loadRules(ruleSet: """
             format: 1
             id: t
             title: T
@@ -103,27 +103,24 @@ struct CompiledRulesTests {
         #expect(rendered == "app at /Users/test/app")
     }
 
-    @Test("Roots expand, and roots inside other roots are dropped")
-    func roots() throws {
-        let profile = defaultProfile.replacingOccurrences(of: #"roots: ["~"]"#, with: #"roots: ["~/Developer", "~", "/Volumes/Work"]"#)
-        let loaded = try loadProfile(ruleSet: Self.minimalRuleSet, profile: profile).get()
+    @Test("Only safe categories are preselected")
+    func preselection() throws {
+        let ruleSet = Self.minimalRuleSet.replacingOccurrences(
+            of: "c: { title: C, safety: safe }",
+            with: "c: { title: C, safety: safe }\n  r: { title: R, safety: review }\n  d: { title: D, safety: dangerous }"
+        )
+        let compiled = CompiledRules(try loadRules(ruleSet: ruleSet).get(), home: Self.home)
 
-        #expect(CompiledRules(loaded, home: "/Users/test/").roots == ["/Users/test", "/Volumes/Work"])
-    }
-
-    @Test("Profile overrides make categories stricter")
-    func categorySafety() throws {
-        let loaded = try loadProfile(ruleSet: Self.minimalRuleSet, profile: defaultProfile + "\ncategorySafety:\n  t.c: dangerous\n").get()
-
-        #expect(CompiledRules(loaded, home: Self.home).categories.map(\.safety) == [.dangerous])
+        #expect(compiled.categories.map(\.name) == ["t.c", "t.d", "t.r"])
+        #expect(compiled.categories.map(\.isPreselected) == [true, false, false])
     }
 
     @Test("Categories keep their symbol, which is optional")
     func symbols() throws {
         let withSymbol = Self.minimalRuleSet.replacingOccurrences(of: "c: { title: C, safety: safe }", with: "c: { title: C, symbol: hammer, safety: safe }")
 
-        let plain = try loadProfile(ruleSet: Self.minimalRuleSet).get()
-        let symbolic = try loadProfile(ruleSet: withSymbol).get()
+        let plain = try loadRules(ruleSet: Self.minimalRuleSet).get()
+        let symbolic = try loadRules(ruleSet: withSymbol).get()
 
         #expect(CompiledRules(plain, home: Self.home).categories.map(\.symbol) == [nil])
         #expect(CompiledRules(symbolic, home: Self.home).categories.map(\.symbol) == ["hammer"])

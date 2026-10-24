@@ -33,79 +33,149 @@ struct CategorySummary: Identifiable {
     }
 }
 
-/// The scan window's state: the profile to scan with, the current scan, and the candidates the
-/// user marked for cleanup.
+/// The scan window's state: where to scan, the current scan, and the candidates the user
+/// marked for cleanup.
 @Observable
 final class ScanModel {
 
     let library: RuleLibrary
-    let home: FilePath
+    /// The places to scan from: the standard ones, then folders the user chose.
+    private(set) var locations: [ScanLocation]
     @ObservationIgnored
     private let fileSystem: any FileSystem
+    /// The user's home folder, for folders they choose to scan.
+    @ObservationIgnored
+    private let userHome: FilePath
 
-    /// Choosing another profile discards the previous profile's results.
-    var profileID: String {
+    /// Choosing another location discards the previous location's results.
+    var location: ScanLocation {
         didSet {
-            guard profileID != oldValue else {
+            guard location != oldValue else {
                 return
             }
-            UserDefaults.standard.set(profileID, forKey: Self.profileKey)
-            if !isScanning {
+            UserDefaults.standard.set(location.root.string, forKey: Self.locationKey)
+            if !isScanning, !isCleaning {
                 session = nil
+                cleanup = nil
             }
         }
     }
 
     /// `nil` until the first scan.
     private(set) var session: ScanSession?
+    /// The latest cleanup of the current scan's candidates, until the next scan.
+    private(set) var cleanup: CleanupSession?
     var filter = CandidateFilter.all
     var searchText = ""
     var selection: Set<FilePath> = []
     var sortOrder = [KeyPathComparator(\CandidateRow.bytes, order: .reverse)]
-    /// Marks the user changed. Every other candidate is marked if its profile preselects it.
+    /// Marks the user changed. Every other candidate is marked if its category is preselected.
     private var markOverrides: [FilePath: Bool] = [:]
 
-    private static let profileKey = "profile"
+    private static let locationKey = "location"
 
-    init(library: RuleLibrary, fileSystem: any FileSystem, home: FilePath) {
+    /// - Parameters:
+    ///   - home: The user's home folder.
+    ///   - locations: The places to offer; the first is the default.
+    init(library: RuleLibrary, fileSystem: any FileSystem, home: FilePath, locations: [ScanLocation]) {
         self.library = library
         self.fileSystem = fileSystem
-        self.home = home
-        let saved = UserDefaults.standard.string(forKey: Self.profileKey)
-        profileID = library[saved ?? ""]?.id ?? library["developer"]?.id ?? library.profiles.first?.id ?? ""
+        userHome = home
+        self.locations = locations
+        location = locations[0]
+        if let saved = UserDefaults.standard.string(forKey: Self.locationKey).map { FilePath($0) } {
+            if let known = locations.first(where: { $0.root == saved }) {
+                location = known
+            } else if fileSystem.exists(at: saved) {
+                chooseFolder(saved)
+            }
+        }
     }
 
-    var profile: RuleLibrary.Profile? {
-        library[profileID]
+    /// Adds `folder` to the locations, unless it is one, and scans from it from now on.
+    func chooseFolder(_ folder: FilePath) {
+        if let known = locations.first(where: { $0.root == folder }) {
+            location = known
+            return
+        }
+        let chosen = ScanLocation(folder: folder, home: userHome)
+        locations.append(chosen)
+        location = chosen
+    }
+
+    /// The home folder as the current location's paths spell it.
+    var home: FilePath {
+        location.home
     }
 
     var isScanning: Bool {
         session?.isScanning ?? false
     }
 
+    var isCleaning: Bool {
+        cleanup?.isRunning ?? false
+    }
+
     var canScan: Bool {
-        guard !isScanning, case .success? = profile?.rules else {
+        guard !isScanning, !isCleaning, case .success = library.rules else {
             return false
         }
         return true
     }
 
-    /// Scans with the chosen profile, discarding the previous results and marks.
+    /// Scans from the chosen location, discarding the previous results and marks.
     func scan() {
-        guard canScan, case .success(let rules)? = profile?.rules else {
+        guard canScan, case .success(let loaded) = library.rules else {
             return
         }
         markOverrides = [:]
         selection = []
         filter = .all
+        cleanup = nil
         // A new scanner per scan, so `olderThan` conditions measure from now.
-        let session = ScanSession(scanner: DiskScanner(rules: rules, fileSystem: fileSystem))
+        let rules = CompiledRules(loaded, home: location.home.string)
+        let session = ScanSession(scanner: DiskScanner(rules: rules, root: location.root, fileSystem: fileSystem))
         self.session = session
         session.start()
     }
 
+    /// Stops the scan, or the cleanup once the candidates it has started are deleted.
     func stop() {
-        session?.cancel()
+        if isCleaning {
+            cleanup?.stop()
+        } else {
+            session?.cancel()
+        }
+    }
+
+    // MARK: - Cleanup
+
+    /// Whether the marked candidates can be deleted now. Only candidates found on the real disk
+    /// can, not those of an in-memory file system.
+    var canDelete: Bool {
+        fileSystem is DarwinFileSystem && !isScanning && !isCleaning && !markedCandidates.isEmpty
+    }
+
+    /// Deletes the marked candidates, permanently. Those deleted leave the results.
+    func deleteMarked() {
+        guard canDelete else {
+            return
+        }
+        let cleanup = CleanupSession(candidates: markedCandidates)
+        self.cleanup = cleanup
+        let session = session
+        Task {
+            await cleanup.waitUntilDone()
+            guard case .finished(let result) = cleanup.state else {
+                return
+            }
+            let removed = Set(result.removed.map(\.path))
+            session?.discard(removed)
+            selection.subtract(removed)
+            for path in removed {
+                markOverrides[path] = nil
+            }
+        }
     }
 
     // MARK: - Candidates
@@ -192,7 +262,7 @@ final class ScanModel {
         }
     }
 
-    /// Marks `paths` as their profile suggests, undoing the user's changes to them.
+    /// Marks `paths` as suggested, undoing the user's changes to them: only safe candidates are.
     func restoreSuggestedMarks(_ paths: some Sequence<FilePath>) {
         for path in paths {
             markOverrides[path] = nil

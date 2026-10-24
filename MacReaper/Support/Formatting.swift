@@ -87,4 +87,16 @@ extension FSError {
         case .io(let errno): String(localized: "Read error \(String(cString: strerror(errno)))")
         }
     }
+
+    /// Why an entry couldn't be deleted.
+    var removalExplanation: String {
+        switch self {
+        case .notFound: String(localized: "it disappeared")
+        case .permissionDenied: String(localized: "permission denied")
+        case .notADirectory, .symlink: String(localized: "it changed while being deleted")
+        case .dataless: String(localized: "it isn’t downloaded from iCloud")
+        case .io(EXDEV): String(localized: "it’s on another volume")
+        case .io(let errno): String(cString: strerror(errno)).lowercased()
+        }
+    }
 }

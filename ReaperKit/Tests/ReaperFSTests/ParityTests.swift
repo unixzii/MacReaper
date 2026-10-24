@@ -65,6 +65,8 @@ struct ParityTests {
         let path = FilePath(temporary.path.string + "/" + relativePath)
 
         #expect(disk.exists(at: path) == memory.exists(at: path))
+        // Identities differ between the two, so only kinds and errors are compared.
+        #expect(outcome(try disk.identity(at: path).kind) == outcome(try memory.identity(at: path).kind))
         #expect(outcome(try disk.readFile(at: path, maxBytes: 64)) == outcome(try memory.readFile(at: path, maxBytes: 64)))
         #expect(outcome(try disk.resolvingSymlinks(path)) == outcome(try memory.resolvingSymlinks(path)))
         #expect(

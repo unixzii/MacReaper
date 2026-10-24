@@ -9,7 +9,7 @@ public struct RuleID: Hashable, Comparable, Sendable {
     }
 }
 
-/// Identifies a category of a compiled profile. Numbered in order of qualified ids.
+/// Identifies a category of compiled rules. Numbered in order of qualified ids.
 public struct CategoryID: Hashable, Comparable, Sendable {
 
     public let index: Int
@@ -19,7 +19,7 @@ public struct CategoryID: Hashable, Comparable, Sendable {
     }
 }
 
-/// Identifies a scope of a compiled profile. Numbered in order of qualified names.
+/// Identifies a scope of compiled rules. Numbered in order of qualified names.
 public struct ScopeID: Hashable, Comparable, Sendable {
 
     public let index: Int
@@ -29,7 +29,7 @@ public struct ScopeID: Hashable, Comparable, Sendable {
     }
 }
 
-/// A loaded profile, compiled for scanning: references resolved to ids, `~` expanded, globs and
+/// Loaded rule sets, compiled for scanning: references resolved to ids, `~` expanded, globs and
 /// templates prepared, and rules indexed by the entries they can apply to.
 public struct CompiledRules: Sendable {
 
@@ -39,11 +39,6 @@ public struct CompiledRules: Sendable {
     public let categories: [CompiledCategory]
     /// Qualified scope names, indexed by ``ScopeID``.
     public let scopes: [String]
-    /// Absolute paths, without roots that lie inside other roots.
-    public let roots: [String]
-    public let exclude: [Glob]
-    public let maxDepth: Int
-    public let preselect: Set<Safety>
     /// The rules that apply to directories.
     public let directoryIndex: RuleIndex
     /// The rules that apply to files.
@@ -51,10 +46,10 @@ public struct CompiledRules: Sendable {
     /// Each rule's place in ``inEvaluationOrder(_:)``, indexed by ``RuleID``.
     private let evaluationRanks: [Int]
 
-    /// Compiles a profile that ``RuleLoader`` loaded, so it is known to be valid.
+    /// Compiles rule sets that ``RuleLoader`` loaded, so they are known to be valid.
     ///
     /// - Parameter home: The absolute path `~` stands for.
-    public init(_ loaded: LoadedProfile, home: String) {
+    public init(_ loaded: LoadedRules, home: String) {
         let home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
         let ruleSets = loaded.ruleSets
         let rulesByID = ruleSets
@@ -66,17 +61,10 @@ public struct CompiledRules: Sendable {
             CompiledRule(entry.1, in: entry.0, id: RuleID(index: index), interner: interner, home: home)
         }
         categories = interner.categoryNames.enumerated().map { index, name in
-            CompiledCategory(id: CategoryID(index: index), name: name, profile: loaded.profile, ruleSets: ruleSets)
+            CompiledCategory(id: CategoryID(index: index), name: name, ruleSets: ruleSets)
         }
         scopes = interner.scopeNames
 
-        let expandedRoots = Set(loaded.profile.roots.map { Self.expand($0.value, home: home) })
-        roots = expandedRoots
-            .filter { root in !expandedRoots.contains { root.hasPrefix($0 + "/") } }
-            .sorted()
-        exclude = loaded.profile.exclude.map { $0.value.expandingHome(home) }
-        maxDepth = loaded.profile.maxDepth
-        preselect = Set(loaded.profile.preselect.map(\.value))
         directoryIndex = RuleIndex(rules.filter { $0.condition.kind == .directory }, capacity: rules.count)
         fileIndex = RuleIndex(rules.filter { $0.condition.kind == .file }, capacity: rules.count)
 
@@ -122,16 +110,6 @@ public struct CompiledRules: Sendable {
     public subscript(id: ScopeID) -> String {
         scopes[id.index]
     }
-
-    private static func expand(_ path: String, home: String) -> String {
-        if path == "~" {
-            return home
-        }
-        if path.hasPrefix("~/") {
-            return home + path.dropFirst()
-        }
-        return path
-    }
 }
 
 public struct CompiledCategory: Sendable {
@@ -143,24 +121,26 @@ public struct CompiledCategory: Sendable {
     /// The name of an SF Symbol for the app to show with the category.
     public let symbol: String?
     public let detail: String?
-    /// The category's safety, made stricter by the profile where it says so.
     public let safety: Safety
+    /// Whether the scan marks this category's candidates for cleanup: only safe ones are.
+    public var isPreselected: Bool {
+        safety == .safe
+    }
 }
 
 extension CompiledCategory {
 
-    init(id: CategoryID, name: String, profile: Profile, ruleSets: [RuleSet]) {
+    init(id: CategoryID, name: String, ruleSets: [RuleSet]) {
         let (ruleSetID, categoryID) = Interner.split(name)
         let ruleSet = ruleSets.first { $0.id.value == ruleSetID }!
         let category = ruleSet.categories.first { $0.id.value == categoryID }!
-        let override = profile.categorySafety.first { $0.category.value == name }?.safety.value
         self.init(
             id: id,
             name: name,
             title: category.title,
             symbol: category.symbol,
             detail: category.detail,
-            safety: max(category.safety, override ?? category.safety)
+            safety: category.safety
         )
     }
 }

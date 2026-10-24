@@ -6,8 +6,8 @@ SHOULD and MAY are used as in RFC 2119. Anything marked *Note* is informative.
 The format describes how MacReaper finds cleanup candidates. A single top-down walk
 visits file-system entries; **rules** look at each entry and the **scopes** it
 inherited from its ancestors, and may push new scopes, **claim** the entry as a
-candidate, or **skip** it. Rules are grouped into **rule sets**. A **profile** says
-where to walk and which rule sets to use.
+candidate, or **skip** it. Rules are grouped into **rule sets**, and every rule set
+the engine has is used in every scan. Where to walk is up to the user, not the rules.
 
 ---
 
@@ -16,8 +16,8 @@ where to walk and which rule sets to use.
 ### 1.1 Encoding
 
 - Documents are YAML 1.2, UTF-8, one document per file.
-- Rule sets live at `rule-sets/<id>.yaml`, profiles at `profiles/<id>.yaml`. Both
-  declare their id in the top-level `id` field, and the file name MUST equal it.
+- Rule sets live at `rule-sets/<id>.yaml`. A rule set declares its id in the
+  top-level `id` field, and the file name MUST equal it.
 - Every document MUST start with `format: 1`. Loaders MUST reject unknown major formats.
 - Unknown keys anywhere are errors. Keys are camelCase.
 - Files SHOULD begin with a schema comment so editors validate them:
@@ -39,8 +39,6 @@ There are four namespaces:
 - A rule's `id` MUST be written qualified and MUST start with its own rule set's id.
 - Category and scope references MAY be written bare (`target`), meaning the
   current rule set, or qualified (`node.project`), meaning another rule set.
-- A rule set that references another rule set's category or scope MUST list that
-  rule set in `requires`. A profile MUST load every rule set its rule sets require.
 - *Note:* the same local id may appear in several namespaces. Rule `rust.target`
   claims category `rust.target`; this is intended.
 
@@ -53,13 +51,12 @@ format: 1
 id: rust                        # equals file name
 title: Rust                     # short display name
 description: Cargo build output.
-requires: []                    # other rule set ids, optional
 categories: { ... }             # §3, optional
 rules: [ ... ]                  # §4, required (may be empty)
 ```
 
-**Loading.** The engine loads every rule set the profile names, validates them
-together (§9), and scans against that snapshot. Rule sets carry no version: a
+**Loading.** The engine loads every rule set it has, validates them together (§8),
+and scans against that snapshot. Rule sets carry no version: a
 change to any rule-set file takes effect only when the engine reloads, and a
 reload validates everything again. A reload never affects a scan in progress.
 
@@ -78,8 +75,8 @@ categories:
 
 | Safety | Meaning |
 |---|---|
-| `safe` | Regenerable without user effort. May be preselected. |
-| `review` | Probably fine, but the user should decide. Never preselected by default. |
+| `safe` | Regenerable without user effort. Preselected. |
+| `review` | Probably fine, but the user should decide. Never preselected. |
 | `dangerous` | May hold the only copy of data. MUST NOT be preselected; MUST require explicit confirmation. |
 
 Safety is totally ordered: `safe < review < dangerous`.
@@ -246,31 +243,36 @@ New checks are added by later minor versions of this format.
 
 ### 7.1 The walk
 
-For each root of the profile (expanded; roots inside other roots are dropped),
-the engine visits the root at depth 0 with an empty scope stack. Visiting entry
-*E* at depth *d* proceeds in this order:
+A scan walks one root directory, which the user chooses: usually the mount point of
+the volume that holds their files, `/System/Volumes/Data`. The root MUST have a parent
+directory, since the walker lists the parent to learn the root's own attributes and
+siblings, so `/` is not a valid root. `~` in rules stands for the home folder as paths
+under the root spell it: `/System/Volumes/Data/Users/<name>` when walking the data
+volume from its mount point.
+
+The engine visits the root at depth 0 with an empty scope stack. Visiting entry *E*
+at depth *d* proceeds in this order:
 
 1. If *E* is a symlink, it is not visited. Symlinks are never followed.
-2. If *E* is on a different volume than its root, it is not visited.
-3. If *E* matches the profile's `exclude`, it is not visited.
-4. If *E* is a directory whose listing fails, a scan error is recorded and *E* is
+2. If *E* is on a different volume than the root, it is not visited.
+3. If *E* is a directory whose listing fails, a scan error is recorded and *E* is
    not visited further.
-5. Candidate rules for *E* are taken from the index. Rules whose `kind` differs
+4. Candidate rules for *E* are taken from the index. Rules whose `kind` differs
    from *E*'s are not evaluated. The rest are tried in this order, ties going to the
    rule whose qualified id sorts first:
    1. `skip` rules;
-   2. non-fallback claims, strictest category first (safety after profile overrides);
+   2. non-fallback claims, strictest category first;
    3. fallback claims, strictest category first;
    4. `pushScope` rules.
-6. If a `skip` rule holds, stop.
-7. **Claims.** The first claim that holds makes *E* a candidate, with that rule's
+5. If a `skip` rule holds, stop. Skip rules are how folders are kept out of a scan.
+6. **Claims.** The first claim that holds makes *E* a candidate, with that rule's
    category and `set` variables, and the visit stops. Later rules are not tried, so
    when several claims would hold, the strictest decides.
-8. **Scopes.** One scope instance per scope name is created at *E*. If several
+7. **Scopes.** One scope instance per scope name is created at *E*. If several
    rules push the same name, their `set` maps are merged; a conflict on the same
    variable is resolved in favour of the rule whose qualified id sorts first.
-9. If *E* is a directory and *d* < `maxDepth`, visit each child at depth *d*+1
-   with the extended scope stack.
+8. If *E* is a directory, visit each child at depth *d*+1 with the extended scope
+   stack.
 
 ### 7.2 Guarantees
 
@@ -286,52 +288,27 @@ the engine visits the root at depth 0 with an empty scope stack. Visiting entry
 
 ---
 
-## 8. Profiles
-
-```yaml
-format: 1
-id: developer
-title: Developer projects
-roots: ["~/Developer", "~/Projects"]   # "~", ~/…, or an absolute path other than /
-exclude: ["~/Developer/archive/**"]   # optional path-globs; matching entries are not visited
-maxDepth: 10                          # 1...64
-ruleSets: [core, rust, node]
-preselect: [safe]                     # subset of [safe, review]
-categorySafety:                       # optional; may only make categories stricter
-  node.modules: review
-```
-
-A root must have a parent directory: the walker lists the parent to learn the root's
-own attributes and siblings. `/` is therefore not a valid root.
-
----
-
-## 9. Validation
+## 8. Validation
 
 A loader MUST reject a document, naming the file and rule, when:
 
 1. it violates the JSON Schema (`schema/*.schema.json`) or has the wrong file name;
    this includes an action with more than one key;
 2. an id is duplicated within its namespace, or a rule id lacks its rule set prefix;
-3. a category, scope or rule set reference does not resolve, or crosses rule sets
-   without `requires`;
+3. a category or scope reference does not resolve;
 4. a check is unknown, gets unknown args, or `expect`s an undeclared fact or a
    value of the wrong type;
 5. a regex does not compile, or a template uses a variable that is not provably
    available (§5.4);
-6. a rule is not indexable (§4.2);
-7. a profile lowers a category's safety, preselects `dangerous`, or omits a rule
-   set that one of its rule sets requires.
+6. a rule is not indexable (§4.2).
 
 ---
 
-## 10. Style
+## 9. Style
 
 Rule sets shipped with MacReaper follow this style; user rule sets SHOULD.
 
-- Top-level key order: `format`, `id`, `title`, `description`, `requires`,
-  `categories`, `rules` (rule sets) and `format`, `id`, `title`, `roots`, `exclude`,
-  `maxDepth`, `ruleSets`, `preselect`, `categorySafety` (profiles).
+- Top-level key order: `format`, `id`, `title`, `description`, `categories`, `rules`.
 - Category key order: `title`, `symbol`, `detail`, `safety`. Every category sets `symbol`.
 - Rule key order: `id`, `description`, `when`, `action`.
 - Condition key order: `kind`, `name`, `path`, `capture`, `contains`,
@@ -342,8 +319,8 @@ Rule sets shipped with MacReaper follow this style; user rule sets SHOULD.
 
 ---
 
-## 11. Reserved for later versions
+## 10. Reserved for later versions
 
 `action.run` (command-based cleanups such as `xcrun simctl delete unavailable`),
-a `json.value` check, and automatic roots derived from `path` rules. Loaders MUST
+and a `json.value` check. Loaders MUST
 reject these keys under `format: 1`.

@@ -25,8 +25,8 @@ struct ScanEventTests {
 
     @Test("Updates add up to the result: every candidate found once and sized once")
     func updatesMatchResult() async throws {
-        let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
-        let scanner = DiskScanner(rules: harness.rules, fileSystem: harness.fileSystem, now: Harness.now, workerCount: 4)
+        let harness = try Harness.shipped(tree: Fixture.tree)
+        let scanner = DiskScanner(rules: harness.rules, root: Harness.home, fileSystem: harness.fileSystem, now: Harness.now, workerCount: 4)
 
         let (updates, result) = try await Self.events(scanner)
 
@@ -53,8 +53,8 @@ struct ScanEventTests {
 
     @Test("Progress only moves forward")
     func progressIsMonotonic() async throws {
-        let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
-        let scanner = DiskScanner(rules: harness.rules, fileSystem: harness.fileSystem, now: Harness.now, workerCount: 4)
+        let harness = try Harness.shipped(tree: Fixture.tree)
+        let scanner = DiskScanner(rules: harness.rules, root: Harness.home, fileSystem: harness.fileSystem, now: Harness.now, workerCount: 4)
 
         let (updates, _) = try await Self.events(scanner)
 
@@ -70,8 +70,8 @@ struct ScanEventTests {
 
     @Test("Without sizing, nothing is sized")
     func noSizing() async throws {
-        let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
-        let scanner = DiskScanner(rules: harness.rules, fileSystem: harness.fileSystem, now: Harness.now, sizesCandidates: false, workerCount: 2)
+        let harness = try Harness.shipped(tree: Fixture.tree)
+        let scanner = DiskScanner(rules: harness.rules, root: Harness.home, fileSystem: harness.fileSystem, now: Harness.now, sizesCandidates: false, workerCount: 2)
 
         let (updates, result) = try await Self.events(scanner)
 
@@ -88,7 +88,7 @@ struct ScanEventTests {
             }
         }, delay: .milliseconds(2))
         let rules = try Harness(rules: ScannerTests.nodeModulesRule) {}.rules
-        let scanner = DiskScanner(rules: rules, fileSystem: fileSystem, now: Harness.now, workerCount: 2)
+        let scanner = DiskScanner(rules: rules, root: Harness.home, fileSystem: fileSystem, now: Harness.now, workerCount: 2)
         let clock = ContinuousClock()
         let start = clock.now
 
@@ -108,7 +108,7 @@ struct ScanEventTests {
             }
         }, delay: .milliseconds(2))
         let rules = try Harness(rules: ScannerTests.nodeModulesRule) {}.rules
-        let scanner = DiskScanner(rules: rules, fileSystem: fileSystem, now: Harness.now, workerCount: 4)
+        let scanner = DiskScanner(rules: rules, root: Harness.home, fileSystem: fileSystem, now: Harness.now, workerCount: 4)
 
         for try await event in scanner.events(every: .milliseconds(10)) {
             if case .update = event {
@@ -130,9 +130,9 @@ struct ScanSessionTests {
 
     @Test("A session shows candidates and sizes, and ends with the result")
     func completes() async throws {
-        let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
+        let harness = try Harness.shipped(tree: Fixture.tree)
         let session = ScanSession(
-            scanner: DiskScanner(rules: harness.rules, fileSystem: harness.fileSystem, now: Harness.now, workerCount: 4),
+            scanner: DiskScanner(rules: harness.rules, root: Harness.home, fileSystem: harness.fileSystem, now: Harness.now, workerCount: 4),
             updateInterval: .milliseconds(5)
         )
 
@@ -159,7 +159,7 @@ struct ScanSessionTests {
         }, delay: .milliseconds(2))
         let rules = try Harness(rules: ScannerTests.nodeModulesRule) {}.rules
         let session = ScanSession(
-            scanner: DiskScanner(rules: rules, fileSystem: fileSystem, now: Harness.now, workerCount: 4),
+            scanner: DiskScanner(rules: rules, root: Harness.home, fileSystem: fileSystem, now: Harness.now, workerCount: 4),
             updateInterval: .milliseconds(10)
         )
 

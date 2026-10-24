@@ -31,6 +31,7 @@ struct WorkItem: Sendable {
 struct DirectoryVisitor: Sendable {
 
     let evaluator: EntryEvaluator
+    let root: FilePath
     /// Sizes the candidates found, unless the scan does not size candidates.
     let sizeTracker: SizeTracker?
 
@@ -47,43 +48,33 @@ struct DirectoryVisitor: Sendable {
         sizeTracker == nil ? [] : .sharedBlocks
     }
 
-    /// The scan roots as work items: resolved, with roots inside other roots dropped. A missing
-    /// root is ignored; any other problem with one is recorded.
-    func roots(into accumulator: inout ScanAccumulator) -> [WorkItem] {
-        var resolved: [FilePath] = []
-        for root in rules.roots {
-            do {
-                resolved.append(try fileSystem.resolvingSymlinks(FilePath(root)))
-            } catch .notFound {
-                continue
-            } catch {
-                accumulator.errors.append(ScanError(path: FilePath(root), error: error))
-            }
+    /// The root as a work item, with symlinks resolved. The root is evaluated like any other
+    /// directory, which needs its parent's listing, so it cannot be `/`. A problem with the root
+    /// is recorded, and nothing is visited.
+    func rootItem(into accumulator: inout ScanAccumulator) -> WorkItem? {
+        let path: FilePath
+        let siblings: DirectoryListing
+        do throws(FSError) {
+            path = try fileSystem.resolvingSymlinks(root)
+            siblings = try fileSystem.listDirectory(at: path.removingLastComponent())
+        } catch {
+            accumulator.errors.append(ScanError(path: root, error: error))
+            return nil
         }
-        let distinct = Set(resolved.map(\.string))
-        let outermost = distinct.filter { root in !distinct.contains { root.hasPrefix($0 + "/") } }.sorted()
-
-        return outermost.compactMap { root -> WorkItem? in
-            let path = FilePath(root)
-            guard let name = path.lastComponent?.string, !isExcluded(root) else {
-                return nil
-            }
-            let siblings: DirectoryListing
-            do throws(FSError) {
-                siblings = try fileSystem.listDirectory(at: path.removingLastComponent())
-            } catch {
-                accumulator.errors.append(ScanError(path: path, error: error))
-                return nil
-            }
-            guard let attributes = siblings.entries.first(where: { $0.name == name }), attributes.kind == .directory else {
-                return nil
-            }
-            return WorkItem(
-                path: path,
-                rootDevice: attributes.identity.device,
-                purpose: .evaluate(attributes: attributes, depth: 0, scopes: .empty, siblings: siblings)
-            )
+        guard let name = path.lastComponent?.string,
+              let attributes = siblings.entries.first(where: { $0.name == name }) else {
+            accumulator.errors.append(ScanError(path: root, error: .notFound))
+            return nil
         }
+        guard attributes.kind == .directory else {
+            accumulator.errors.append(ScanError(path: root, error: .notADirectory))
+            return nil
+        }
+        return WorkItem(
+            path: path,
+            rootDevice: attributes.identity.device,
+            purpose: .evaluate(attributes: attributes, depth: 0, scopes: .empty, siblings: siblings)
+        )
     }
 
     /// Visits `item`.
@@ -153,10 +144,6 @@ struct DirectoryVisitor: Sendable {
         case .descend(let inner):
             scopes = inner
         }
-        guard depth < rules.maxDepth else {
-            return ([], [])
-        }
-
         var next: [WorkItem] = []
         var sized: [SizedCandidate] = []
         let directory = item.path.string
@@ -169,10 +156,6 @@ struct DirectoryVisitor: Sendable {
             case .other:
                 continue
             case .file:
-                if isExcluded(path) {
-                    accumulator.stats.excluded += 1
-                    continue
-                }
                 accumulator.stats.files += 1
                 let file = EntryContext(
                     pathString: path,
@@ -202,8 +185,6 @@ struct DirectoryVisitor: Sendable {
             case .directory:
                 if child.identity.device != item.rootDevice {
                     accumulator.stats.otherVolumes += 1
-                } else if isExcluded(path) {
-                    accumulator.stats.excluded += 1
                 } else {
                     next.append(WorkItem(
                         path: FilePath(path),
@@ -246,9 +227,5 @@ struct DirectoryVisitor: Sendable {
         }
         let size = sizeTracker!.record(measurement, for: candidate, followUps: next.count)
         return (next, size.map { [SizedCandidate(path: FilePath(candidate), size: $0)] } ?? [])
-    }
-
-    private func isExcluded(_ path: String) -> Bool {
-        !rules.exclude.isEmpty && rules.exclude.contains { $0.matches(path) }
     }
 }

@@ -25,7 +25,6 @@ public struct Claim: Sendable {
     /// The rule that claimed the entry.
     public let rule: RuleID
     public let category: CategoryID
-    /// The category's safety, after profile overrides.
     public let safety: Safety
     public let isPreselected: Bool
     /// The rule's `set` variables.
@@ -36,7 +35,7 @@ public struct Claim: Sendable {
     public internal(set) var size: CandidateSize?
 }
 
-/// Evaluates the rules of a compiled profile against one entry at a time.
+/// Evaluates compiled rules against one entry at a time.
 ///
 /// Evaluation reads the file system (for checks and nested `contains` paths) but never changes
 /// it, and depends only on the entry it is given, so entries may be evaluated in any order and
@@ -112,7 +111,7 @@ public struct EntryEvaluator: Sendable {
             rule: rule.id,
             category: category,
             safety: safety,
-            isPreselected: rules.preselect.contains(safety),
+            isPreselected: rules[category].isPreselected,
             variables: variables,
             provenance: entry.scopes.instances
         )

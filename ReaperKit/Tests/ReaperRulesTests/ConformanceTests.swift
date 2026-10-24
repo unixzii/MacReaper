@@ -8,7 +8,7 @@ struct ConformanceTests {
     @Test("Case", arguments: ConformanceCase.names)
     func conformanceCase(_ name: String) throws {
         let testCase = try ConformanceCase.load(name)
-        let result = Result { () throws(RuleDiagnostics) in try RuleLoader.loadProfile("p", from: testCase.sources) }
+        let result = Result { () throws(RuleDiagnostics) in try RuleLoader.load(testCase.sources) }
 
         switch (testCase.expect, result) {
         case (.valid, .success):
@@ -38,8 +38,7 @@ struct ConformanceTests {
                 covered.insert(code)
             }
         }
-        // An unknown profile cannot be expressed as a case: every case loads profile `p`.
-        let expected = Set(DiagnosticCode.allCases.map(\.rawValue)).subtracting([DiagnosticCode.unknownProfile.rawValue])
+        let expected = Set(DiagnosticCode.allCases.map(\.rawValue))
         #expect(expected.subtracting(covered).isEmpty, "Codes without a case: \(expected.subtracting(covered).sorted())")
         #expect(covered.subtracting(expected).isEmpty, "Cases with unknown codes: \(covered.subtracting(expected).sorted())")
     }

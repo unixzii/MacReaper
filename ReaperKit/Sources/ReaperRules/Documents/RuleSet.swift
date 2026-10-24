@@ -6,7 +6,6 @@ public struct RuleSet: Sendable {
     public var id: Located<String>
     public var title: String
     public var description: String
-    public var requires: [Located<String>]
     public var categories: [Category]
     public var rules: [Rule]
 }
@@ -20,7 +19,7 @@ extension RuleSet {
         guard let fields = reader.mapping(
             node,
             "a rule set",
-            allowed: ["format", "id", "title", "description", "requires", "categories", "rules"],
+            allowed: ["format", "id", "title", "description", "categories", "rules"],
             required: ["format", "id", "title", "description", "rules"]
         ) else {
             return nil
@@ -32,10 +31,6 @@ extension RuleSet {
         let id = fields["id"].flatMap { reader.identifier($0, "the rule set id", form: .id) }
         let title = fields["title"].flatMap { reader.text($0, "`title`") }
         let description = fields["description"].flatMap { reader.text($0, "`description`") }
-        let requires = fields["requires"].flatMap { node in
-            reader.list(node, "`requires`", allowsEmpty: true) { $0.identifier($1, "a required rule set", form: .id) }
-        } ?? []
-        reader.reportRepeats(requires, "`requires`")
         let categories = fields["categories"].flatMap { node in
             reader.dictionary(node, "`categories`")?.compactMap { key, value in
                 Category(id: key, value, reader: &reader)
@@ -52,7 +47,6 @@ extension RuleSet {
             id: id,
             title: title.value,
             description: description.value,
-            requires: requires,
             categories: categories,
             rules: rules
         )

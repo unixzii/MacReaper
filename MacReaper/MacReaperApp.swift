@@ -6,9 +6,15 @@ import System
 struct MacReaperApp: App {
 
     @State private var model: ScanModel = {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
+        // Resolved, so that `~` is spelled the way the walk spells paths.
+        let home = FileManager.default.homeDirectoryForCurrentUser.resolvingSymlinksInPath().path(percentEncoded: false)
         let trimmed = home.hasSuffix("/") ? String(home.dropLast()) : home
-        return ScanModel(library: .builtin(home: trimmed), fileSystem: DarwinFileSystem(), home: FilePath(trimmed))
+        return ScanModel(
+            library: .builtin(),
+            fileSystem: DarwinFileSystem(),
+            home: FilePath(trimmed),
+            locations: ScanLocation.standard(home: FilePath(trimmed))
+        )
     }()
 
     var body: some Scene {
@@ -23,7 +29,7 @@ struct MacReaperApp: App {
                     .disabled(!model.canScan)
                 Button("Stop") { model.stop() }
                     .keyboardShortcut(".")
-                    .disabled(!model.isScanning)
+                    .disabled(!model.isScanning && !model.isCleaning)
             }
         }
     }

@@ -105,7 +105,7 @@ struct SizingTests {
             File("app/node_modules/a.js", contents: "a")
         }
 
-        let result = try await DiskScanner(rules: harness.rules, fileSystem: harness.fileSystem, now: Harness.now, sizesCandidates: false, workerCount: 2).scan()
+        let result = try await DiskScanner(rules: harness.rules, root: Harness.home, fileSystem: harness.fileSystem, now: Harness.now, sizesCandidates: false, workerCount: 2).scan()
 
         #expect(result.candidates.count == 1)
         #expect(result.candidates.allSatisfy { $0.size == nil })
@@ -138,10 +138,10 @@ struct SizingTests {
         fileSystem.onListing = { _, path in
             listed.withLock { $0.append(path) }
         }
-        let loaded = try RuleLoader.loadProfile("home", from: RuleSources.builtin())
+        let loaded = try RuleLoader.load(RuleSources.builtin())
         let rules = CompiledRules(loaded, home: Harness.home.string)
 
-        let result = try await DiskScanner(rules: rules, fileSystem: fileSystem, now: Harness.now, workerCount: 4).scan()
+        let result = try await DiskScanner(rules: rules, root: Harness.home, fileSystem: fileSystem, now: Harness.now, workerCount: 4).scan()
 
         let paths = listed.withLock { $0 }
         #expect(paths.count == Set(paths).count, "listed twice: \(Dictionary(grouping: paths, by: \.self).filter { $0.value.count > 1 }.keys)")
@@ -192,9 +192,9 @@ struct SizingTests {
     }
 
     private static func scan(_ tree: Tree) async throws -> ScanResult {
-        let rules = CompiledRules(try loadInlineProfile(rules: Self.rules), home: Harness.home.string)
+        let rules = CompiledRules(try loadInlineRules(rules: Self.rules), home: Harness.home.string)
         let fileSystem = InMemoryFileSystem(root: Harness.home, order: .shuffled(seed: 7), tree: tree)
-        return try await DiskScanner(rules: rules, fileSystem: fileSystem, now: Harness.now, workerCount: 3).scan()
+        return try await DiskScanner(rules: rules, root: Harness.home, fileSystem: fileSystem, now: Harness.now, workerCount: 3).scan()
     }
 
     private static func scan(@TreeBuilder _ nodes: () -> [TreeNode]) async throws -> ScanResult {
@@ -210,10 +210,11 @@ struct SizingTests {
     private static func scanOnDiskAndInMemory(_ tree: Tree) async throws -> (onDisk: ScanResult, inMemory: ScanResult) {
         let temporary = try TemporaryDirectory()
         try tree.materialize(at: temporary.path)
-        let rules = CompiledRules(try loadInlineProfile(rules: Self.rules), home: temporary.path.string)
-        let onDisk = try await DiskScanner(rules: rules, fileSystem: DarwinFileSystem(), workerCount: 3).scan()
+        let rules = CompiledRules(try loadInlineRules(rules: Self.rules), home: temporary.path.string)
+        let onDisk = try await DiskScanner(rules: rules, root: temporary.path, fileSystem: DarwinFileSystem(), workerCount: 3).scan()
         let inMemory = try await DiskScanner(
             rules: rules,
+            root: temporary.path,
             fileSystem: InMemoryFileSystem(root: temporary.path, tree: tree),
             workerCount: 3
         ).scan()

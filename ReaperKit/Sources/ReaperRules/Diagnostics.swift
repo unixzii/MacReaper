@@ -55,7 +55,6 @@ public enum DiagnosticCode: String, Hashable, Sendable, CaseIterable {
     case actionNotSingle = "action-not-single"
     case notIndexable = "not-indexable"
     case fileRuleNeedsNameOrPath = "file-rule-needs-name-or-path"
-    case dangerousPreselect = "dangerous-preselect"
     case fileNameMismatch = "file-name-mismatch"
 
     // Identifiers.
@@ -63,11 +62,8 @@ public enum DiagnosticCode: String, Hashable, Sendable, CaseIterable {
     case missingRuleSetPrefix = "missing-rule-set-prefix"
 
     // References.
-    case unknownProfile = "unknown-profile"
-    case unknownRuleSet = "unknown-rule-set"
     case unknownCategory = "unknown-category"
     case unknownScope = "unknown-scope"
-    case missingRequires = "missing-requires"
 
     // Checks.
     case unknownCheck = "unknown-check"
@@ -84,10 +80,6 @@ public enum DiagnosticCode: String, Hashable, Sendable, CaseIterable {
 
     // Indexability.
     case globWithoutLiteral = "glob-without-literal"
-
-    // Profiles.
-    case safetyLowered = "safety-lowered"
-    case profileMissingRequiredRuleSet = "profile-missing-required-rule-set"
 }
 
 /// One problem found while loading rules.
@@ -112,7 +104,7 @@ public struct RuleDiagnostic: Hashable, Sendable, CustomStringConvertible {
     }
 }
 
-/// Every problem found while loading a profile and its rule sets.
+/// Every problem found while loading rule sets.
 public struct RuleDiagnostics: Error, Sendable, CustomStringConvertible {
 
     /// Sorted by location.

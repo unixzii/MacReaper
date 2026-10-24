@@ -34,10 +34,9 @@ public enum BuiltinChecks {
 
 extension RuleLoader {
 
-    /// Loads the profile `id` and every rule set it names, validating calls to checks against
-    /// the engine's checks.
-    public static func loadProfile(_ id: String, from sources: RuleSources) throws(RuleDiagnostics) -> LoadedProfile {
-        try loadProfile(id, from: sources, checks: BuiltinChecks.specs)
+    /// Loads every rule set in `sources`, validating calls to checks against the engine's checks.
+    public static func load(_ sources: RuleSources) throws(RuleDiagnostics) -> LoadedRules {
+        try load(sources, checks: BuiltinChecks.specs)
     }
 }
 

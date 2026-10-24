@@ -12,36 +12,44 @@ struct ScanActivity: View {
     @State private var showsErrors = false
 
     var body: some View {
-        let session = model.session
         HStack(spacing: 8) {
-            indicator(session)
-                .frame(width: 16)
-            Text(message(session))
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 4)
-            if case .finished(let result)? = session?.state, !result.errors.isEmpty {
-                Button {
-                    showsErrors = true
-                } label: {
-                    Label("\(result.errors.count)", systemImage: "exclamationmark.triangle.fill")
-                        .labelStyle(.titleAndIcon)
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.orange)
-                .help("Folders the scan couldn’t read")
-                .popover(isPresented: $showsErrors, arrowEdge: .bottom) {
-                    ScanErrorList(model: model, errors: result.errors)
-                }
+            if let cleanup = model.cleanup {
+                CleanupActivity(model: model, cleanup: cleanup)
+            } else {
+                scan(model.session)
             }
-            Text(trailing(session))
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
         }
         .font(.callout)
         .padding(.horizontal, 10)
         .frame(width: 420, height: 28)
-        .help(detail(session))
+    }
+
+    @ViewBuilder
+    private func scan(_ session: ScanSession?) -> some View {
+        indicator(session)
+            .frame(width: 16)
+        Text(message(session))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .help(detail(session))
+        Spacer(minLength: 4)
+        if case .finished(let result)? = session?.state, !result.errors.isEmpty {
+            Button {
+                showsErrors = true
+            } label: {
+                Label("\(result.errors.count)", systemImage: "exclamationmark.triangle.fill")
+                    .labelStyle(.titleAndIcon)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.orange)
+            .help("Folders the scan couldn’t read")
+            .popover(isPresented: $showsErrors, arrowEdge: .bottom) {
+                ScanErrorList(model: model, errors: result.errors)
+            }
+        }
+        Text(trailing(session))
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
     }
 
     @ViewBuilder
@@ -113,7 +121,7 @@ struct ScanActivity: View {
     /// The counts behind the message, for the tooltip.
     private func detail(_ session: ScanSession?) -> String {
         guard let session else {
-            return model.profile.map { String(localized: "Scan with “\($0.title)” to find candidates") } ?? ""
+            return String(localized: "Scan “\(model.location.title)” to find candidates")
         }
         if case .finished(let result) = session.state {
             return String(localized: "Scanned \(result.stats.directories) folders and \(result.stats.files) files")

@@ -10,16 +10,16 @@ collects candidates for review, and cleanup deletes exactly what was reviewed.
 | [MacReaper.xcodeproj](MacReaper.xcodeproj) | The SwiftUI app. Its sources live in [MacReaper/](MacReaper/), a folder Xcode keeps in sync, so new files need no project edits. |
 | [Docs/RuleFormat.md](Docs/RuleFormat.md) | The rule format specification: documents, conditions, actions, evaluation, validation, style. |
 | [ReaperKit/](ReaperKit/) | The Swift package with everything below the user interface. |
-| [ReaperKit/Sources/ReaperRules/Resources/BuiltinRules/](ReaperKit/Sources/ReaperRules/Resources/BuiltinRules/) | The rule sets and profiles that ship with MacReaper, and JSON Schemas editors use to validate them. |
+| [ReaperKit/Sources/ReaperRules/Resources/BuiltinRules/](ReaperKit/Sources/ReaperRules/Resources/BuiltinRules/) | The rule sets that ship with MacReaper, and the JSON Schema editors use to validate them. |
 
 ReaperKit's targets:
 
 | Target | Role |
 |---|---|
-| `ReaperFS` | Read-only file system access: `getattrlistbulk` listings, probes, and errors. |
+| `ReaperFS` | File system access: `getattrlistbulk` listings, probes, deletion, and errors. |
 | `ReaperFSTesting` | An in-memory file system and a tree DSL, for tests and previews. |
 | `ReaperRules` | Loads and validates rule files, and compiles them for scanning. |
-| `ReaperEngine` | Evaluates rules, walks the file system on a worker pool, and sizes candidates. |
+| `ReaperEngine` | Evaluates rules, walks the file system on a worker pool, sizes candidates, and deletes them. |
 
 ## Running the app
 
@@ -29,8 +29,10 @@ Open `MacReaper.xcodeproj` and run the MacReaper scheme, or build from the comma
 xcodebuild -project MacReaper.xcodeproj -scheme MacReaper build
 ```
 
-The app is not sandboxed, since it scans the home folder. Scanning only reads; nothing is
-deleted yet. Some folders under `~/Library` need Full Disk Access; the scan lists what it
+The app is not sandboxed, since it scans the whole data volume (`/System/Volumes/Data`) by
+default, or the home folder or another folder of your choice. Scanning only reads. Deleting the
+marked candidates takes a confirmation, and deletes them permanently rather than moving them to
+the Trash. Some folders under `~/Library` need Full Disk Access; the scan lists what it
 couldn't read and links to the setting. The app is signed to run locally, so macOS treats each
 rebuild as a new app and Full Disk Access may need granting again.
 

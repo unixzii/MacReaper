@@ -32,6 +32,10 @@ struct SlowFileSystem: FileSystem {
         base.exists(at: path)
     }
 
+    func identity(at path: FilePath) throws(FSError) -> (identity: FileIdentity, kind: EntryKind) {
+        try base.identity(at: path)
+    }
+
     func readFile(at path: FilePath, maxBytes: Int) throws(FSError) -> [UInt8] {
         try base.readFile(at: path, maxBytes: maxBytes)
     }

@@ -234,24 +234,6 @@ struct OutcomeTests {
         #expect(harness.name(claim.category) == "t.one")
     }
 
-    @Test("Profile overrides decide which claim is stricter")
-    func overriddenSafety() throws {
-        let rules = """
-              - id: t.a-first
-                when: { name: shared }
-                action: { claim: one }
-              - id: t.b-second
-                when: { name: shared }
-                action: { claim: two }
-            """
-        let loaded = try loadInlineProfile(categories: ["one": .safe, "two": .safe], rules: rules, categorySafety: ["t.two": .dangerous])
-        let compiled = CompiledRules(loaded, home: Harness.home.string)
-
-        let claimRule = compiled.inEvaluationOrder(compiled.rules.map(\.id)).first.map { compiled[$0].name }
-
-        #expect(claimRule == "t.b-second")
-    }
-
     @Test("Scopes pushed twice at one entry merge into one instance")
     func scopeMerge() throws {
         let harness = try Harness(rules: """

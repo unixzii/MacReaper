@@ -1,14 +1,6 @@
-description: "A rule set may use another rule set's scope and category once it lists it in requires."
+description: "A rule set may use another rule set's scope and category."
 expect: valid
 files:
-  profiles/p.yaml: |
-    format: 1
-    id: p
-    title: P
-    roots: ["~"]
-    maxDepth: 3
-    ruleSets: [t, o]
-    preselect: [safe]
   rule-sets/o.yaml: |
     format: 1
     id: o
@@ -31,7 +23,6 @@ files:
     id: t
     title: T
     description: Test rule set.
-    requires: [o]
 
     categories:
       c:

@@ -1,5 +1,5 @@
-/// What cross-document validation knows about everything a profile loads: the categories and
-/// scopes the rule sets declare, the rule ids seen so far, and the problems found.
+/// What cross-document validation knows about the rule sets loaded together: the categories and
+/// scopes they declare, the rule ids seen so far, and the problems found.
 ///
 /// Document types validate themselves with a `validate` method that takes this context. It only
 /// runs on documents that ``DocumentReader`` read without problems, so it can trust their
@@ -52,8 +52,8 @@ struct ValidationContext {
         reference.contains(".") ? reference : "\(ruleSet.id.value).\(reference)"
     }
 
-    /// Resolves a reference written in `ruleSet`, reporting a reference to another rule set that
-    /// is not in `requires`, or to something nobody declares.
+    /// Resolves a reference written in `ruleSet`, reporting a reference to something nobody
+    /// declares.
     mutating func resolve(
         _ reference: Located<String>,
         in ruleSet: RuleSet,
@@ -61,16 +61,6 @@ struct ValidationContext {
         ruleID: String
     ) -> String? {
         let qualified = qualifiedName(reference.value, in: ruleSet)
-        let owner = String(qualified.prefix { $0 != "." })
-        if owner != ruleSet.id.value, !ruleSet.requires.contains(where: { $0.value == owner }) {
-            report(
-                .missingRequires,
-                "`\(reference.value)` belongs to rule set `\(owner)`, which `\(ruleSet.id.value)` does not list in requires",
-                at: reference.location,
-                ruleID: ruleID
-            )
-            return nil
-        }
         switch kind {
         case .category where categories[qualified] == nil:
             report(.unknownCategory, "no rule set declares the category `\(qualified)`", at: reference.location, ruleID: ruleID)

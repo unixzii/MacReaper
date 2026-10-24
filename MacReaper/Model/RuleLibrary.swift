@@ -2,41 +2,22 @@ import Foundation
 import ReaperEngine
 import ReaperRules
 
-/// The profiles the app can scan with, each loaded and compiled when the app starts.
+/// Every rule set the app scans with, loaded and validated when the app starts.
 struct RuleLibrary {
 
-    struct Profile: Identifiable {
+    /// The rule sets, or every problem that keeps them from loading.
+    let rules: Result<LoadedRules, RuleDiagnostics>
 
-        let id: String
-        let title: String
-        /// The compiled rules, or every problem that keeps the profile's rule files from loading.
-        let rules: Result<CompiledRules, RuleDiagnostics>
+    init(sources: RuleSources) {
+        rules = Result { () throws(RuleDiagnostics) in try RuleLoader.load(sources) }
     }
 
-    /// Sorted by id.
-    let profiles: [Profile]
-
-    init(sources: RuleSources, home: String) {
-        profiles = sources.profiles.keys.sorted().map { id in
-            do throws(RuleDiagnostics) {
-                let loaded = try RuleLoader.loadProfile(id, from: sources)
-                return Profile(id: id, title: loaded.profile.title, rules: .success(CompiledRules(loaded, home: home)))
-            } catch {
-                return Profile(id: id, title: id, rules: .failure(error))
-            }
-        }
-    }
-
-    /// The rule sets and profiles that ship with the app.
-    static func builtin(home: String) -> RuleLibrary {
+    /// The rule sets that ship with the app.
+    static func builtin() -> RuleLibrary {
         do {
-            return RuleLibrary(sources: try RuleSources.builtin(), home: home)
+            return RuleLibrary(sources: try RuleSources.builtin())
         } catch {
             fatalError("The built-in rules are missing from the app bundle: \(error)")
         }
-    }
-
-    subscript(id: String) -> Profile? {
-        profiles.first { $0.id == id }
     }
 }

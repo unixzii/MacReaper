@@ -19,78 +19,51 @@ public struct RuleSource: Sendable {
     }
 }
 
-/// The rule sets and profiles available for loading, keyed by file name without extension.
+/// The rule sets available for loading, keyed by file name without extension.
 public struct RuleSources: Sendable {
 
     public var ruleSets: [String: RuleSource]
-    public var profiles: [String: RuleSource]
 
-    public init(ruleSets: [RuleSource], profiles: [RuleSource]) {
+    public init(ruleSets: [RuleSource]) {
         self.ruleSets = Dictionary(ruleSets.map { ($0.stem, $0) }) { _, last in last }
-        self.profiles = Dictionary(profiles.map { ($0.stem, $0) }) { _, last in last }
     }
 
-    /// The rule sets and profiles that ship with MacReaper.
+    /// The rule sets that ship with MacReaper.
     public static func builtin() throws -> RuleSources {
         try RuleSources(directory: Bundle.module.url(forResource: "BuiltinRules", withExtension: nil)!)
     }
 
-    /// Reads `rule-sets/*.yaml` and `profiles/*.yaml` under `directory`.
+    /// Reads `rule-sets/*.yaml` under `directory`.
     public init(directory: URL) throws {
-        func sources(in folder: String) throws -> [RuleSource] {
-            let url = directory.appending(path: folder)
-            return try FileManager.default.contentsOfDirectory(atPath: url.path(percentEncoded: false))
-                .filter { $0.hasSuffix(".yaml") }
-                .map { name in
-                    RuleSource(file: "\(folder)/\(name)", text: try String(contentsOf: url.appending(path: name), encoding: .utf8))
-                }
-        }
-        self.init(ruleSets: try sources(in: "rule-sets"), profiles: try sources(in: "profiles"))
+        let url = directory.appending(path: "rule-sets")
+        self.init(ruleSets: try FileManager.default.contentsOfDirectory(atPath: url.path(percentEncoded: false))
+            .filter { $0.hasSuffix(".yaml") }
+            .map { name in
+                RuleSource(file: "rule-sets/\(name)", text: try String(contentsOf: url.appending(path: name), encoding: .utf8))
+            })
     }
 }
 
-/// A profile and the rule sets it names, validated together.
-public struct LoadedProfile: Sendable {
+/// Rule sets validated together.
+public struct LoadedRules: Sendable {
 
-    public var profile: Profile
-    /// In the order the profile lists them.
+    /// In order of id.
     public var ruleSets: [RuleSet]
 }
 
 public enum RuleLoader {
 
-    /// Loads the profile `id` and every rule set it names, and validates them together.
+    /// Loads every rule set in `sources`, and validates them together.
     ///
     /// Structural problems in any document are reported first; the cross-document checks run
     /// only when every document is well-formed.
     ///
     /// - Parameter checks: The checks rules may call. The engine that runs the rules supplies
     ///   them, so that rules are validated against the checks it implements.
-    public static func loadProfile(_ id: String, from sources: RuleSources, checks: [CheckSpec]) throws(RuleDiagnostics) -> LoadedProfile {
-        guard let profileSource = sources.profiles[id] else {
-            let location = SourceLocation(file: "profiles/\(id).yaml", line: 1, column: 1)
-            throw RuleDiagnostics([RuleDiagnostic(code: .unknownProfile, message: "there is no profile `\(id)`", location: location)])
-        }
-
+    public static func load(_ sources: RuleSources, checks: [CheckSpec]) throws(RuleDiagnostics) -> LoadedRules {
         var diagnostics: [RuleDiagnostic] = []
-        var reader = DocumentReader(file: profileSource.file)
-        let profile = reader.root(of: profileSource.text).flatMap { Profile($0, reader: &reader) }
-        diagnostics += reader.diagnostics
-        guard let profile else {
-            throw RuleDiagnostics(diagnostics)
-        }
-        diagnostics += fileNameDiagnostics(profile.id, source: profileSource)
-
         var ruleSets: [RuleSet] = []
-        for reference in profile.ruleSets {
-            guard let source = sources.ruleSets[reference.value] else {
-                diagnostics.append(RuleDiagnostic(
-                    code: .unknownRuleSet,
-                    message: "there is no rule set `\(reference.value)`",
-                    location: reference.location
-                ))
-                continue
-            }
+        for source in sources.ruleSets.values.sorted(by: { $0.stem < $1.stem }) {
             var reader = DocumentReader(file: source.file)
             let ruleSet = reader.root(of: source.text).flatMap { RuleSet($0, reader: &reader) }
             diagnostics += reader.diagnostics
@@ -104,14 +77,13 @@ public enum RuleLoader {
         }
 
         var context = ValidationContext(ruleSets: ruleSets, checks: checks)
-        profile.validate(loading: ruleSets, context: &context)
         for ruleSet in ruleSets {
             ruleSet.validate(&context)
         }
         guard context.diagnostics.isEmpty else {
             throw RuleDiagnostics(context.diagnostics)
         }
-        return LoadedProfile(profile: profile, ruleSets: ruleSets)
+        return LoadedRules(ruleSets: ruleSets)
     }
 
     private static func fileNameDiagnostics(_ id: Located<String>, source: RuleSource) -> [RuleDiagnostic] {

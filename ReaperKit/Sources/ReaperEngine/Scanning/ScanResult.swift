@@ -31,10 +31,8 @@ public struct ScanStats: Hashable, Sendable {
     public var skipped = 0
     /// Symlinks seen and not followed.
     public var symlinks = 0
-    /// Directories on another volume than their root, not entered.
+    /// Directories on another volume than the root, not entered.
     public var otherVolumes = 0
-    /// Entries matching the profile's `exclude`, not visited.
-    public var excluded = 0
     public var duration: Duration = .zero
 
     mutating func add(_ other: ScanStats) {
@@ -43,7 +41,6 @@ public struct ScanStats: Hashable, Sendable {
         skipped += other.skipped
         symlinks += other.symlinks
         otherVolumes += other.otherVolumes
-        excluded += other.excluded
     }
 }
 

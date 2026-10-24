@@ -4,7 +4,8 @@ import ReaperRules
 import Synchronization
 import System
 
-/// Walks a profile's roots and collects every entry its rules claim.
+/// Walks a root directory and collects every entry the rules claim. The walk stays on the root's
+/// volume: directories on other volumes are not entered.
 ///
 /// The walk runs on dedicated threads rather than in Swift concurrency's cooperative pool:
 /// listing directories blocks on disk I/O, and blocking the pool's few threads would stall
@@ -12,22 +13,26 @@ import System
 public struct DiskScanner: Sendable {
 
     public let evaluator: EntryEvaluator
+    public let root: FilePath
     /// Whether candidates are sized: everything inside them listed, and added up.
     public let sizesCandidates: Bool
     public let workerCount: Int
 
     /// - Parameters:
+    ///   - root: The directory to scan. It must have a parent, so it cannot be `/`.
     ///   - now: The time `olderThan` conditions measure from.
     ///   - sizesCandidates: Whether to size candidates, which lists everything inside them.
     ///   - workerCount: Threads that list, evaluate and size directories in parallel.
     public init(
         rules: CompiledRules,
+        root: FilePath,
         fileSystem: any FileSystem,
         now: Date = .now,
         sizesCandidates: Bool = true,
         workerCount: Int = DiskScanner.defaultWorkerCount
     ) {
         self.evaluator = EntryEvaluator(rules: rules, fileSystem: fileSystem, now: now)
+        self.root = root
         self.sizesCandidates = sizesCandidates
         self.workerCount = max(1, workerCount)
     }
@@ -41,7 +46,7 @@ public struct DiskScanner: Sendable {
         max(1, ProcessInfo.processInfo.activeProcessorCount * 3 / 4)
     }
 
-    /// Scans every root of the profile.
+    /// Scans the root.
     ///
     /// The result does not depend on the number of workers or on the order in which the file
     /// system lists directories.
@@ -51,7 +56,7 @@ public struct DiskScanner: Sendable {
         try await run(reporter: nil)
     }
 
-    /// Scans every root of the profile, reporting candidates, sizes and progress as they come.
+    /// Scans the root, reporting candidates, sizes and progress as they come.
     ///
     /// Updates are coalesced and sent at most once per `interval`, and only when something
     /// changed, so a user interface can apply each one as it arrives. The last event is always
@@ -93,12 +98,12 @@ public struct DiskScanner: Sendable {
         let clock = ContinuousClock()
         let start = clock.now
         let sizeTracker = sizesCandidates ? SizeTracker() : nil
-        let visitor = DirectoryVisitor(evaluator: evaluator, sizeTracker: sizeTracker)
+        let visitor = DirectoryVisitor(evaluator: evaluator, root: root, sizeTracker: sizeTracker)
         let queue = WorkQueue()
         let collected = Collected()
 
         var rootAccumulator = ScanAccumulator()
-        queue.push(visitor.roots(into: &rootAccumulator))
+        queue.push(visitor.rootItem(into: &rootAccumulator).map { [$0] } ?? [])
         collected.add(rootAccumulator)
 
         await withTaskCancellationHandler {

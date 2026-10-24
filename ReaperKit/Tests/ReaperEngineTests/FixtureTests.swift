@@ -3,13 +3,13 @@ import ReaperFSTesting
 import ReaperRules
 import Testing
 
-/// The shipped `home` profile, scanned over ``Fixture``.
+/// The shipped rules, scanned over ``Fixture``.
 @Suite("Fixture scan")
 struct FixtureTests {
 
     @Test("Every expected candidate, and nothing else")
     func candidates() async throws {
-        let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
+        let harness = try Harness.shipped(tree: Fixture.tree)
 
         let result = try await harness.scan()
 
@@ -25,7 +25,7 @@ struct FixtureTests {
 
     @Test("Scopes, preselection and nesting")
     func details() async throws {
-        let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
+        let harness = try Harness.shipped(tree: Fixture.tree)
 
         let result = try await harness.scan()
 
@@ -46,7 +46,7 @@ struct FixtureTests {
 
     @Test("Skips and symlinks are counted")
     func stats() async throws {
-        let harness = try Harness(shippedProfile: "home", tree: Fixture.tree)
+        let harness = try Harness.shipped(tree: Fixture.tree)
 
         let stats = try await harness.scan().stats
 
@@ -61,8 +61,8 @@ struct FixtureTests {
     /// depends on the guard, the scan would not change, and the guard would be untested.
     @Test("Every guard matters", arguments: Mutation.all)
     func mutation(_ mutation: Mutation) async throws {
-        let baseline = try Harness(shippedProfile: "home", tree: Fixture.tree)
-        let mutated = try Harness(shippedProfile: "home", editing: mutation.apply, tree: Fixture.tree)
+        let baseline = try Harness.shipped(tree: Fixture.tree)
+        let mutated = try Harness.shipped(editing: mutation.apply, tree: Fixture.tree)
 
         let before = Self.summary(try await baseline.scan(), baseline)
         let after = Self.summary(try await mutated.scan(), mutated)

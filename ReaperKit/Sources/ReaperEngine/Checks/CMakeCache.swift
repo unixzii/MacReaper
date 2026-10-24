@@ -6,8 +6,8 @@ import System
 /// an in-source build from an out-of-source one, and a live project from an orphaned one.
 ///
 /// Facts:
-/// - `valid`: `CMAKE_CACHEFILE_DIR` resolves to this directory, so the cache was not copied or moved.
-/// - `inSource`: `CMAKE_HOME_DIRECTORY` (the source) resolves to this directory.
+/// - `valid`: `CMAKE_CACHEFILE_DIR` is this directory, so the cache was not copied or moved.
+/// - `inSource`: `CMAKE_HOME_DIRECTORY` (the source) is this directory.
 /// - `sourceDir`: `CMAKE_HOME_DIRECTORY` as written.
 /// - `sourceExists`: the source still has a `CMakeLists.txt`.
 /// - `project`: `CMAKE_PROJECT_NAME`, or the source directory's name.
@@ -35,9 +35,11 @@ struct CMakeCache: Check {
             return nil
         }
 
-        let here = try? fileSystem.resolvingSymlinks(entry.path)
+        // By identity: the cache spells paths as CMake saw them, which may differ from how the
+        // walk reached the directory, through a symlink or the data volume's mount point.
         func isHere(_ path: String) -> Bool {
-            here != nil && (try? fileSystem.resolvingSymlinks(FilePath(path))) == here
+            let resolved = try? fileSystem.resolvingSymlinks(FilePath(path))
+            return resolved.flatMap { try? fileSystem.identity(at: $0).identity } == entry.attributes.identity
         }
         let source = FilePath(sourceDirectory)
         return [

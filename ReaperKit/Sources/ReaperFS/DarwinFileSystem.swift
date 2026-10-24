@@ -56,6 +56,17 @@ public struct DarwinFileSystem: FileSystem {
         }
     }
 
+    public func identity(at path: FilePath) throws(FSError) -> (identity: FileIdentity, kind: EntryKind) {
+        let (info, code) = path.withPlatformString { cPath in
+            var info = stat()
+            return lstat(cPath, &info) == 0 ? (info, 0) : (nil, errno)
+        }
+        guard let info else {
+            throw FSError(errno: code)
+        }
+        return (FileIdentity(device: info.st_dev, fileID: info.st_ino), Self.kind(info.st_mode))
+    }
+
     public func readFile(at path: FilePath, maxBytes: Int) throws(FSError) -> [UInt8] {
         let descriptor = try open(path, flags: O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         defer { close(descriptor) }
@@ -103,6 +114,15 @@ public struct DarwinFileSystem: FileSystem {
             IOPOL_SCOPE_THREAD,
             IOPOL_MATERIALIZE_DATALESS_FILES_OFF
         ) == 0
+    }
+
+    private static func kind(_ mode: mode_t) -> EntryKind {
+        switch mode & S_IFMT {
+        case S_IFDIR: .directory
+        case S_IFREG: .file
+        case S_IFLNK: .symlink
+        default: .other
+        }
     }
 
     private func open(_ path: FilePath, flags: Int32) throws(FSError) -> Int32 {

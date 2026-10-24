@@ -26,7 +26,7 @@ public struct RuleIndex: Sendable {
         case anyChild([Glob])
     }
 
-    /// The number of rules in the whole profile, which sizes every ``RuleSelection``.
+    /// The number of rules compiled together, which sizes every ``RuleSelection``.
     private let capacity: Int
     private var byName: [String: [RuleID]] = [:]
     private var byNameSuffix = SuffixTable()
@@ -38,7 +38,7 @@ public struct RuleIndex: Sendable {
 
     /// - Parameters:
     ///   - rules: The rules to index, all for the same kind of entry.
-    ///   - capacity: The number of rules in the profile.
+    ///   - capacity: The number of rules compiled together.
     init(_ rules: [CompiledRule], capacity: Int) {
         self.capacity = capacity
         for rule in rules {
@@ -223,7 +223,7 @@ private struct SuffixTable: Sendable {
 /// A set of rule ids. Iterating it yields ids in ascending order, which is the order of the
 /// rules' qualified ids.
 ///
-/// The first 64 ids are kept inline, so profiles of up to 64 rules never allocate one.
+/// The first 64 ids are kept inline, so rules compiled together, up to 64 of them, never allocate one.
 public struct RuleSelection: Sequence, Sendable {
 
     private var low: UInt64 = 0

@@ -44,28 +44,12 @@ struct ConformanceCase: Decodable {
     }
 
     var sources: RuleSources {
-        RuleSources(
-            ruleSets: files.filter { $0.key.hasPrefix("rule-sets/") }.map { RuleSource(file: $0.key, text: $0.value) },
-            profiles: files.filter { $0.key.hasPrefix("profiles/") }.map { RuleSource(file: $0.key, text: $0.value) }
-        )
+        RuleSources(ruleSets: files.map { RuleSource(file: $0.key, text: $0.value) })
     }
 }
 
-/// Loads profile `p` from documents given inline, for focused tests.
-func loadProfile(ruleSet: String, profile: String = defaultProfile) -> Result<LoadedProfile, RuleDiagnostics> {
-    let sources = RuleSources(
-        ruleSets: [RuleSource(file: "rule-sets/t.yaml", text: ruleSet)],
-        profiles: [RuleSource(file: "profiles/p.yaml", text: profile)]
-    )
-    return Result { () throws(RuleDiagnostics) in try RuleLoader.loadProfile("p", from: sources) }
+/// Loads rule set `t` given inline, for focused tests.
+func loadRules(ruleSet: String) -> Result<LoadedRules, RuleDiagnostics> {
+    let sources = RuleSources(ruleSets: [RuleSource(file: "rule-sets/t.yaml", text: ruleSet)])
+    return Result { () throws(RuleDiagnostics) in try RuleLoader.load(sources) }
 }
-
-let defaultProfile = """
-    format: 1
-    id: p
-    title: P
-    roots: ["~"]
-    maxDepth: 3
-    ruleSets: [t]
-    preselect: [safe]
-    """

@@ -2,7 +2,7 @@
 format: 1
 id: core
 title: Core
-description: Walk hygiene and generic, self-describing caches. Required by every profile.
+description: Walk hygiene and generic, self-describing caches.
 
 categories:
   cachedir-tagged:

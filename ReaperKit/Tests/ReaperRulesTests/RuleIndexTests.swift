@@ -75,7 +75,7 @@ struct RuleIndexTests {
             rules:
 
             """ + rules.joined(separator: "\n") + "\n"
-        let compiled = CompiledRules(try loadProfile(ruleSet: ruleSet).get(), home: "/Users/test")
+        let compiled = CompiledRules(try loadRules(ruleSet: ruleSet).get(), home: "/Users/test")
 
         for index in [0, 63, 64, 127, 128, 149] {
             let found = compiled.directoryIndex.candidates(name: "d\(index)", path: "/Users/test/d\(index)", children: [String]())

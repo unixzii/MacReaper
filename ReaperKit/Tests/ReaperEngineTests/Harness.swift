@@ -24,36 +24,32 @@ struct Harness {
     init(
         categories: [String: Safety] = ["a": .safe],
         rules: String,
-        roots: [String] = ["~"],
-        maxDepth: Int = 20,
-        exclude: [String] = [],
         @TreeBuilder tree: () -> [TreeNode]
     ) throws {
-        let loaded = try loadInlineProfile(categories: categories, rules: rules, roots: roots, maxDepth: maxDepth, exclude: exclude)
-        try self.init(loaded: loaded, order: .byName, tree: Tree(tree))
+        let loaded = try loadInlineRules(categories: categories, rules: rules)
+        self.init(loaded: loaded, order: .byName, tree: Tree(tree))
     }
 
-    /// Uses a profile that ships with ReaperRules.
+    /// Uses the rule sets that ship with ReaperRules.
     ///
     /// - Parameters:
     ///   - order: The order the in-memory file system lists directories in.
     ///   - edit: Changes the shipped rule files before loading, to test that a rule matters.
-    init(
-        shippedProfile profile: String,
+    static func shipped(
         order: InMemoryFileSystem.ListingOrder = .byName,
         editing edit: (inout RuleSources) -> Void = { _ in },
         tree: Tree
-    ) throws {
+    ) throws -> Harness {
         var sources = try RuleSources.builtin()
         edit(&sources)
-        try self.init(loaded: RuleLoader.loadProfile(profile, from: sources), order: order, tree: tree)
+        return Harness(loaded: try RuleLoader.load(sources), order: order, tree: tree)
     }
 
-    init(shippedProfile profile: String, @TreeBuilder tree: () -> [TreeNode]) throws {
-        try self.init(shippedProfile: profile, tree: Tree(tree))
+    static func shipped(@TreeBuilder tree: () -> [TreeNode]) throws -> Harness {
+        try shipped(tree: Tree(tree))
     }
 
-    private init(loaded: LoadedProfile, order: InMemoryFileSystem.ListingOrder, tree: Tree) throws {
+    private init(loaded: LoadedRules, order: InMemoryFileSystem.ListingOrder, tree: Tree) {
         fileSystem = InMemoryFileSystem(root: Self.home, order: order, tree: tree)
         evaluator = EntryEvaluator(
             rules: CompiledRules(loaded, home: Self.home.string),
@@ -62,8 +58,10 @@ struct Harness {
         )
     }
 
-    func scan(workers: Int = 1) async throws -> ScanResult {
-        try await DiskScanner(rules: rules, fileSystem: fileSystem, now: Self.now, workerCount: workers).scan()
+    /// Scans from the home folder, or from `root` relative to it.
+    func scan(workers: Int = 1, root: String? = nil) async throws -> ScanResult {
+        let path = root.map { Self.home.appending($0) } ?? Self.home
+        return try await DiskScanner(rules: rules, root: path, fileSystem: fileSystem, now: Self.now, workerCount: workers).scan()
     }
 
     /// `path` relative to the home folder.
@@ -122,16 +120,8 @@ struct Harness {
     }
 }
 
-/// Loads a profile `p` with one inline rule set `t`, holding the given categories
-/// (`name: safety`) and rules.
-func loadInlineProfile(
-    categories: [String: Safety] = ["a": .safe],
-    rules: String,
-    roots: [String] = ["~"],
-    maxDepth: Int = 20,
-    exclude: [String] = [],
-    categorySafety: [String: Safety] = [:]
-) throws -> LoadedProfile {
+/// Loads one inline rule set `t`, holding the given categories (`name: safety`) and rules.
+func loadInlineRules(categories: [String: Safety] = ["a": .safe], rules: String) throws -> LoadedRules {
     let categoryLines = categories.keys.sorted()
         .map { "  \($0): { title: \($0), safety: \(categories[$0]!.rawValue) }" }
         .joined(separator: "\n")
@@ -145,22 +135,7 @@ func loadInlineProfile(
         rules:
         \(rules)
         """
-    let profile = """
-        format: 1
-        id: p
-        title: P
-        roots: [\(roots.map { "\"\($0)\"" }.joined(separator: ", "))]
-        exclude: [\(exclude.map { "\"\($0)\"" }.joined(separator: ", "))]
-        maxDepth: \(maxDepth)
-        ruleSets: [t]
-        preselect: [safe]
-        categorySafety: {\(categorySafety.keys.sorted().map { "\($0): \(categorySafety[$0]!.rawValue)" }.joined(separator: ", "))}
-        """
-    let sources = RuleSources(
-        ruleSets: [RuleSource(file: "rule-sets/t.yaml", text: ruleSet)],
-        profiles: [RuleSource(file: "profiles/p.yaml", text: profile)]
-    )
-    return try RuleLoader.loadProfile("p", from: sources)
+    return try RuleLoader.load(RuleSources(ruleSets: [RuleSource(file: "rule-sets/t.yaml", text: ruleSet)]))
 }
 
 extension Date {

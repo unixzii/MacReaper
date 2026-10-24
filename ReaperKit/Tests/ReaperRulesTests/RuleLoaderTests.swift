@@ -5,19 +5,19 @@ import Testing
 @Suite("RuleLoader")
 struct RuleLoaderTests {
 
-    @Test("Shipped profiles load", arguments: ["developer", "home"])
-    func shippedProfilesLoad(_ id: String) throws {
+    @Test("Shipped rule sets load, in order of id")
+    func shippedRuleSetsLoad() throws {
         let sources = try RuleSources.builtin()
 
-        let loaded = try RuleLoader.loadProfile(id, from: sources)
+        let loaded = try RuleLoader.load(sources)
 
-        #expect(loaded.ruleSets.map(\.id.value) == loaded.profile.ruleSets.map(\.value))
+        #expect(loaded.ruleSets.map(\.id.value) == sources.ruleSets.keys.sorted())
         #expect(loaded.ruleSets.allSatisfy { !$0.rules.isEmpty })
     }
 
     @Test("Scalars follow YAML 1.2: yes and on are strings, not booleans")
     func yaml12Scalars() throws {
-        let loaded = try loadProfile(ruleSet: ruleSet(extraRules: """
+        let loaded = try loadRules(ruleSet: ruleSet(extraRules: """
               - id: t.yes
                 when: { name: [yes, on, "no"] }
                 action: { claim: c }
@@ -29,7 +29,7 @@ struct RuleLoaderTests {
 
     @Test("Plain true is a boolean where a string is expected")
     func booleanWhereStringExpected() {
-        let result = loadProfile(ruleSet: ruleSet(extraRules: """
+        let result = loadRules(ruleSet: ruleSet(extraRules: """
               - id: t.bool
                 when: { name: true }
                 action: { claim: c }
@@ -40,7 +40,7 @@ struct RuleLoaderTests {
 
     @Test("One pass reports every structural problem, with line and column")
     func reportsEveryProblem() throws {
-        let result = loadProfile(ruleSet: ruleSet(extraRules: """
+        let result = loadRules(ruleSet: ruleSet(extraRules: """
               - id: t.broken
                 when: { name: a/b, olderThan: soon, size: 1 }
                 action: { claim: c, skip: true }
@@ -55,22 +55,13 @@ struct RuleLoaderTests {
 
     @Test("Cross-document checks run only on well-formed documents")
     func semanticChecksWaitForStructure() {
-        let result = loadProfile(ruleSet: ruleSet(extraRules: """
+        let result = loadRules(ruleSet: ruleSet(extraRules: """
               - id: t.both
                 when: { name: z, size: 1 }
                 action: { claim: nope }
             """))
 
         #expect(codes(result) == [.unknownKey])
-    }
-
-    @Test("An unknown profile is reported")
-    func unknownProfile() {
-        let result = Result { () throws(RuleDiagnostics) in
-            try RuleLoader.loadProfile("missing", from: RuleSources(ruleSets: [], profiles: []))
-        }
-
-        #expect(codes(result) == [.unknownProfile])
     }
 
     private func ruleSet(extraRules: String) -> String {
@@ -86,7 +77,7 @@ struct RuleLoaderTests {
         """
     }
 
-    private func codes(_ result: Result<LoadedProfile, RuleDiagnostics>) -> [DiagnosticCode] {
+    private func codes(_ result: Result<LoadedRules, RuleDiagnostics>) -> [DiagnosticCode] {
         result.failure?.diagnostics.map(\.code) ?? []
     }
 }

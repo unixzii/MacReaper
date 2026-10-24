@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=../schema/profile.schema.json
-format: 1
-id: developer
-title: Developer projects
-roots: [~/Developer, ~/Projects, ~/src]
-maxDepth: 10
-ruleSets: [core, rust, node, swiftpm, xcode, cmake, meson, gradle, maven, python, dotnet, unity, latex]
-preselect: [safe]

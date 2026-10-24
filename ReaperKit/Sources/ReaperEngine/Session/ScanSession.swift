@@ -19,7 +19,8 @@ public final class ScanSession {
     public let updateInterval: Duration
 
     public private(set) var state: State = .idle
-    /// In the order found while scanning; sorted by path once the scan finishes.
+    /// In the order found while scanning; sorted by path once the scan finishes. Candidates
+    /// cleanup deleted are dropped.
     public private(set) var candidates: [Claim] = []
     /// `nil` until the first update arrives.
     public private(set) var progress: ScanProgress?
@@ -68,6 +69,16 @@ public final class ScanSession {
 
     public func cancel() {
         task?.cancel()
+    }
+
+    /// Drops candidates that are gone, after cleanup deleted them. The finished state's result
+    /// still describes the scan as it ran.
+    public func discard(_ paths: Set<FilePath>) {
+        guard !isScanning, !paths.isEmpty else {
+            return
+        }
+        candidates.removeAll { paths.contains($0.path) }
+        indexByPath = Dictionary(uniqueKeysWithValues: candidates.enumerated().map { ($1.path, $0) })
     }
 
     /// Waits until the current scan has finished, failed or been cancelled.

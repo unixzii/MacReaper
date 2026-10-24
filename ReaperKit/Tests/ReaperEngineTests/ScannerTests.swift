@@ -28,12 +28,12 @@ struct ScannerTests {
 
     @Test("Results do not depend on worker count or listing order", arguments: [1, 2, 8])
     func determinism(workers: Int) async throws {
-        let reference = try Harness(shippedProfile: "home", tree: Fixture.tree)
+        let reference = try Harness.shipped(tree: Fixture.tree)
         let referenceResult = try await reference.scan()
         let expected = Self.canonical(referenceResult, reference)
 
         for seed in UInt64(0)..<10 {
-            let shuffled = try Harness(shippedProfile: "home", order: .shuffled(seed: seed), tree: Fixture.tree)
+            let shuffled = try Harness.shipped(order: .shuffled(seed: seed), tree: Fixture.tree)
             let result = try await shuffled.scan(workers: workers)
             #expect(Self.canonical(result, shuffled) == expected, "seed \(seed)")
             #expect(result.totalSize == referenceResult.totalSize, "seed \(seed)")
@@ -103,41 +103,34 @@ struct ScannerTests {
         #expect(result.errors.map(\.error) == [.dataless, .permissionDenied])
     }
 
-    @Test("maxDepth limits how deep the walk goes")
-    func maxDepth() async throws {
-        let harness = try Harness(rules: Self.nodeModulesRule, maxDepth: 2) {
-            Directory("a/node_modules")
-            Directory("a/b/node_modules")
-        }
-
-        let result = try await harness.scan()
-
-        #expect(result.candidates.map { harness.relative($0.path) } == ["a/node_modules"])
-    }
-
-    @Test("Excluded paths are not visited")
-    func exclude() async throws {
-        let harness = try Harness(rules: Self.nodeModulesRule, exclude: ["~/Developer/archive/**"]) {
-            Directory("Developer/archive/old/node_modules")
-            Directory("Developer/current/node_modules")
-        }
-
-        let result = try await harness.scan()
-
-        #expect(result.candidates.map { harness.relative($0.path) } == ["Developer/current/node_modules"])
-        #expect(result.stats.excluded == 1)
-    }
-
-    @Test("Missing roots are ignored, and nested roots are walked once")
-    func roots() async throws {
-        let harness = try Harness(rules: Self.nodeModulesRule, roots: ["~", "~/Developer", "~/missing"]) {
+    @Test("Only what is inside the root is walked")
+    func root() async throws {
+        let harness = try Harness(rules: Self.nodeModulesRule) {
             Directory("Developer/app/node_modules")
+            Directory("Other/node_modules")
         }
 
-        let result = try await harness.scan(workers: 4)
+        let result = try await harness.scan(workers: 4, root: "Developer")
 
         #expect(result.candidates.map { harness.relative($0.path) } == ["Developer/app/node_modules"])
         #expect(result.errors.isEmpty)
+    }
+
+    @Test("A root that is missing or not a folder is reported, and nothing is walked", arguments: [
+        ("missing", FSError.notFound),
+        ("file", FSError.notADirectory),
+    ])
+    func unusableRoot(root: String, error: FSError) async throws {
+        let harness = try Harness(rules: Self.nodeModulesRule) {
+            File("file")
+            Directory("node_modules")
+        }
+
+        let result = try await harness.scan(root: root)
+
+        #expect(result.candidates.isEmpty)
+        #expect(result.errors.map(\.path) == [Harness.home.appending(root)])
+        #expect(result.errors.map(\.error) == [error])
     }
 
     @Test("A cancelled scan throws and stops listing")
@@ -157,7 +150,7 @@ struct ScannerTests {
             }
         }
         let harness = try Harness(rules: Self.nodeModulesRule) {}
-        let scanner = DiskScanner(rules: harness.rules, fileSystem: fileSystem, now: Harness.now, workerCount: 4)
+        let scanner = DiskScanner(rules: harness.rules, root: Harness.home, fileSystem: fileSystem, now: Harness.now, workerCount: 4)
 
         let task = Task { try await scanner.scan() }
         trigger.arm(task)

@@ -1,14 +1,6 @@
 description: "A rule with a scope test may use that scope's root and the variables its pushers set."
 expect: valid
 files:
-  profiles/p.yaml: |
-    format: 1
-    id: p
-    title: P
-    roots: ["~"]
-    maxDepth: 3
-    ruleSets: [t]
-    preselect: [safe]
   rule-sets/t.yaml: |
     format: 1
     id: t

@@ -7,8 +7,7 @@ import Yams
 @Suite("Shipped rule style")
 struct RuleStyleTests {
 
-    static let ruleSetKeys = ["format", "id", "title", "description", "requires", "categories", "rules"]
-    static let profileKeys = ["format", "id", "title", "roots", "exclude", "maxDepth", "ruleSets", "preselect", "categorySafety"]
+    static let ruleSetKeys = ["format", "id", "title", "description", "categories", "rules"]
     static let categoryKeys = ["title", "symbol", "detail", "safety"]
     static let ruleKeys = ["id", "description", "when", "action"]
     static let conditionKeys = [
@@ -52,15 +51,6 @@ struct RuleStyleTests {
                 #expect(Self.keys(long) != [onlyKey], "\(ruleID): use the short form of \(kind)")
             }
         }
-    }
-
-    @Test("Profiles", arguments: sources.profiles.keys.sorted())
-    func profile(_ id: String) throws {
-        let text = Self.sources.profiles[id]!.text
-        #expect(text.hasPrefix("# yaml-language-server: $schema=../schema/profile.schema.json\n"))
-
-        let document = try #require(try Yams.compose(yaml: text)?.mapping)
-        #expect(Self.isOrdered(Self.keys(document), by: Self.profileKeys), "top-level key order")
     }
 
     private static func keys(_ mapping: Node.Mapping) -> [String] {
