@@ -24,6 +24,9 @@ struct CandidateTable: View {
             showsCategory: !model.filter.isCategorized,
             isMeasuring: model.isScanning
         )
+        // Up to the window's top edge, so rows scroll on under the toolbar; the scroll view
+        // insets its content by the toolbar's height on its own.
+        .ignoresSafeArea(.container, edges: .top)
     }
 }
 
@@ -123,6 +126,7 @@ final class CandidateTableController: NSObject, NSTableViewDataSource, NSTableVi
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
+        scrollView.automaticallyAdjustsContentInsets = true
     }
 
     private func addColumn(_ id: NSUserInterfaceItemIdentifier, title: String, width: CGFloat, minWidth: CGFloat? = nil, sortable: Bool = true) {
