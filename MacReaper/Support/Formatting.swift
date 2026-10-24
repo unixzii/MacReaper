@@ -12,8 +12,10 @@ extension UInt64 {
 
 extension Duration {
 
+    /// Whole seconds, or "< 1 sec".
     var formattedSeconds: String {
-        formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated, fractionalPart: .show(length: 1)))
+        let style = Duration.UnitsFormatStyle(allowedUnits: [.minutes, .seconds], width: .abbreviated)
+        return self < .seconds(1) ? "< " + Duration.seconds(1).formatted(style) : formatted(style)
     }
 }
 

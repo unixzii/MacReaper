@@ -73,6 +73,9 @@ final class ScanModel {
     private var markOverrides: [FilePath: Bool] = [:]
 
     private static let locationKey = "location"
+    /// How often a scan or cleanup reports progress. Once a second keeps the window calm, and
+    /// keeps a large table from being re-sorted many times a second.
+    private static let updateInterval = Duration.seconds(1)
 
     /// - Parameters:
     ///   - home: The user's home folder.
@@ -134,7 +137,10 @@ final class ScanModel {
         cleanup = nil
         // A new scanner per scan, so `olderThan` conditions measure from now.
         let rules = CompiledRules(loaded, home: location.home.string)
-        let session = ScanSession(scanner: DiskScanner(rules: rules, root: location.root, fileSystem: fileSystem))
+        let session = ScanSession(
+            scanner: DiskScanner(rules: rules, root: location.root, fileSystem: fileSystem),
+            updateInterval: Self.updateInterval
+        )
         self.session = session
         session.start()
     }
@@ -161,7 +167,7 @@ final class ScanModel {
         guard canDelete else {
             return
         }
-        let cleanup = CleanupSession(candidates: markedCandidates)
+        let cleanup = CleanupSession(candidates: markedCandidates, updateInterval: Self.updateInterval)
         self.cleanup = cleanup
         let session = session
         Task {
@@ -215,7 +221,7 @@ final class ScanModel {
             .sorted(using: sortOrder)
     }
 
-    /// Every category with candidates, by title.
+    /// Every category with candidates, largest first.
     var categories: [CategorySummary] {
         guard let rules else {
             return []
@@ -226,7 +232,11 @@ final class ScanModel {
             summaries[id, default: CategorySummary(category: rules[id])].count += 1
             summaries[id]!.bytes += candidate.size?.allocated ?? 0
         }
-        return summaries.values.sorted { $0.category.title.localizedStandardCompare($1.category.title) == .orderedAscending }
+        return summaries.values.sorted { lhs, rhs in
+            lhs.bytes != rhs.bytes
+                ? lhs.bytes > rhs.bytes
+                : lhs.category.title.localizedStandardCompare(rhs.category.title) == .orderedAscending
+        }
     }
 
     var selectedCandidates: [Claim] {

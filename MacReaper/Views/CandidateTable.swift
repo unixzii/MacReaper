@@ -12,7 +12,8 @@ struct CandidateTable: View {
     @SceneStorage("candidateColumns") private var columns = TableColumnCustomization<CandidateRow>()
 
     var body: some View {
-        Table(model.rows, selection: $model.selection, sortOrder: $model.sortOrder, columnCustomization: $columns) {
+        let rows = model.rows
+        Table(rows, selection: $model.selection, sortOrder: $model.sortOrder, columnCustomization: $columns) {
             TableColumn("") { row in
                 Toggle("Marked", isOn: Binding(
                     get: { row.isMarked },
@@ -68,6 +69,8 @@ struct CandidateTable: View {
         // row, and moving a thousand rows makes AppKit create and tear down a view for each,
         // which took tens of seconds; a new table makes views for the visible rows only.
         .id(model.sortOrder)
+        // An empty table shows only the message over it, without stripes for rows it lacks.
+        .alternatingRowBackgrounds(rows.isEmpty ? .disabled : .enabled)
         .contextMenu(forSelectionType: FilePath.self) { paths in
             if !paths.isEmpty {
                 Button("Mark") { model.setMarked(true, paths) }

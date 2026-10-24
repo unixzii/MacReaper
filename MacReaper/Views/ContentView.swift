@@ -49,10 +49,11 @@ struct ContentView: View {
                     Button("Stop", systemImage: "stop.fill", action: model.stop)
                         .disabled(model.cleanup?.isStopping == true)
                         .help(model.isCleaning ? "Stop deleting once the candidates being deleted are done" : "Stop scanning")
-                } else {
-                    Button("Scan", systemImage: "arrow.clockwise", action: model.scan)
+                } else if model.session != nil {
+                    // Before the first scan, the window's own Scan button starts one.
+                    Button("Scan Again", systemImage: "arrow.clockwise", action: model.scan)
                         .disabled(!model.canScan)
-                        .help("Scan for candidates")
+                        .help("Scan again")
                 }
             }
         }

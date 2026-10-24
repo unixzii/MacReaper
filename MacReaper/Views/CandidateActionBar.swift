@@ -30,7 +30,7 @@ struct CandidateActionBar: View {
                             ? "The space the marked candidates take up. Some of their files share space with other files, so deleting them may free less."
                             : "The space the marked candidates take up, which deleting them frees.")
                 } else {
-                    Text("Measuring…")
+                    Text(model.isScanning ? "Measuring…" : "Not measured")
                         .foregroundStyle(.secondary)
                 }
                 Button("Delete…", role: .destructive) {
