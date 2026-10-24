@@ -12,7 +12,7 @@ categories:
     safety: safe
   store:
     title: Package store
-    symbol: archivebox
+    symbol: tray.and.arrow.down
     detail: Shared or hard-linked stores that projects may rely on. Prefer the tool's own prune command.
     safety: review
 

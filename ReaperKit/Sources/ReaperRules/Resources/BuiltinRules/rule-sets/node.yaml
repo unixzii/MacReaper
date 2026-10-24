@@ -12,7 +12,7 @@ categories:
     safety: safe
   framework-cache:
     title: Framework build cache
-    symbol: bolt
+    symbol: hammer
     detail: Next.js, Nuxt, Turbo, Parcel, SvelteKit and Vite caches.
     safety: safe
 

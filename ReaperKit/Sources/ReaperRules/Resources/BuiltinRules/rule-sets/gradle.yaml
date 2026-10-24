@@ -11,7 +11,7 @@ categories:
     safety: safe
   project-cache:
     title: Gradle project cache
-    symbol: archivebox
+    symbol: hammer
     detail: .gradle and Android .cxx folders next to a Gradle build script.
     safety: safe
 

@@ -7,7 +7,7 @@ description: LaTeX auxiliary files next to their .tex source.
 categories:
   aux:
     title: LaTeX auxiliary files
-    symbol: doc.text
+    symbol: text.rectangle.page
     safety: safe
 
 rules:

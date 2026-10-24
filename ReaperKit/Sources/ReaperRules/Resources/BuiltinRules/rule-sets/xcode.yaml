@@ -27,7 +27,7 @@ categories:
     safety: dangerous
   simulator-caches:
     title: Simulator caches
-    symbol: ipad.and.iphone
+    symbol: tray.full
     safety: safe
 
 rules:

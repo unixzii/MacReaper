@@ -16,7 +16,7 @@ categories:
     safety: safe
   in-source-files:
     title: CMake files in a source tree
-    symbol: doc.on.doc
+    symbol: hammer
     detail: In-source build; only CMake's own bookkeeping is offered, never the folder.
     safety: review
 

@@ -7,16 +7,16 @@ description: Virtual environments, bytecode and tool caches.
 categories:
   venv:
     title: Python virtual environment
-    symbol: terminal
+    symbol: hammer
     detail: May contain packages installed by hand; recreate from requirements first.
     safety: review
   bytecode:
     title: Python bytecode cache
-    symbol: doc.badge.gearshape
+    symbol: hammer
     safety: safe
   tool-cache:
     title: Python tool cache
-    symbol: wrench.and.screwdriver
+    symbol: hammer
     detail: pytest, mypy, ruff and tox caches.
     safety: safe
 
