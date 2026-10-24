@@ -279,25 +279,31 @@ final class CandidateTableController: NSObject, NSTableViewDataSource, NSTableVi
 
     /// The rows a context menu acts on: the selection when the click is inside it, otherwise
     /// the clicked row.
-    private var menuTargets: Set<FilePath> {
+    private var menuTargets: [CandidateRow] {
         let index = tableView.clickedRow
         guard rows.indices.contains(index) else {
             return []
         }
         return tableView.selectedRowIndexes.contains(index)
-            ? Set(tableView.selectedRowIndexes.map { rows[$0].id })
-            : [rows[index].id]
+            ? tableView.selectedRowIndexes.map { rows[$0] }
+            : [rows[index]]
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         menuActions = []
-        let paths = menuTargets
-        guard !paths.isEmpty else {
+        let targets = menuTargets
+        guard !targets.isEmpty else {
             return
         }
-        addMenuItem(to: menu, String(localized: "Mark")) { [model] in model.setMarked(true, paths) }
-        addMenuItem(to: menu, String(localized: "Unmark")) { [model] in model.setMarked(false, paths) }
+        let paths = Set(targets.map(\.id))
+        // Only what would change something: both only when some are marked and some aren't.
+        if targets.contains(where: { !$0.isMarked }) {
+            addMenuItem(to: menu, String(localized: "Mark")) { [model] in model.setMarked(true, paths) }
+        }
+        if targets.contains(where: \.isMarked) {
+            addMenuItem(to: menu, String(localized: "Unmark")) { [model] in model.setMarked(false, paths) }
+        }
         menu.addItem(.separator())
         addMenuItem(to: menu, String(localized: "Show in Finder")) { [weak self] in self?.reveal(paths) }
         addMenuItem(to: menu, String(localized: "Copy Path")) {

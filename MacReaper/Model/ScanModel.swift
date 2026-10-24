@@ -162,10 +162,23 @@ final class ScanModel {
         filter == .all || filter == .marked
     }
 
+    /// Whether the window asks to confirm deleting the marked candidates shown. Set by the
+    /// bottom bar's button and by the menu command.
+    var isConfirmingDeletion = false
+
+    /// Whether the marked candidates shown could be deleted now, without working out the rows.
+    var canDeleteMarkedShown: Bool {
+        offersDeleting && canStartCleanup && candidates.contains { isMarked($0) && isShown($0) }
+    }
+
     /// Whether `candidates` can be deleted now. Only candidates found on the real disk can, not
     /// those of an in-memory file system.
     func canDelete(_ candidates: [Claim]) -> Bool {
-        fileSystem is DarwinFileSystem && !isScanning && !isCleaning && !candidates.isEmpty
+        canStartCleanup && !candidates.isEmpty
+    }
+
+    private var canStartCleanup: Bool {
+        fileSystem is DarwinFileSystem && !isScanning && !isCleaning
     }
 
     /// Deletes `candidates`, permanently. Those deleted leave the results.
@@ -206,16 +219,8 @@ final class ScanModel {
         guard let rules else {
             return []
         }
-        let query = searchText.trimmingCharacters(in: .whitespaces)
         return candidates
-            .filter { candidate in
-                switch filter {
-                case .all: true
-                case .marked: isMarked(candidate)
-                case .category(let id): candidate.category == id
-                }
-            }
-            .filter { query.isEmpty || $0.path.string.localizedStandardContains(query) }
+            .filter(isShown)
             .map { candidate in
                 CandidateRow(
                     claim: candidate,
@@ -225,6 +230,17 @@ final class ScanModel {
                 )
             }
             .sorted(by: sort.areInIncreasingOrder)
+    }
+
+    /// Whether the sidebar and search let `candidate` through.
+    private func isShown(_ candidate: Claim) -> Bool {
+        let matchesFilter = switch filter {
+        case .all: true
+        case .marked: isMarked(candidate)
+        case .category(let id): candidate.category == id
+        }
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        return matchesFilter && (query.isEmpty || candidate.path.string.localizedStandardContains(query))
     }
 
     /// Every category with candidates, largest first.

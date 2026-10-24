@@ -26,6 +26,10 @@ struct MacReaperApp: App {
                 Button("Scan") { model.scan() }
                     .keyboardShortcut("r")
                     .disabled(!model.canScan)
+                // The bottom bar's delete: the marked candidates shown, after a confirmation.
+                Button("Delete Marked…") { model.isConfirmingDeletion = true }
+                    .disabled(!model.canDeleteMarkedShown)
+                Divider()
                 Button("Stop") { model.stop() }
                     .keyboardShortcut(".")
                     .disabled(!model.isScanning && !model.isCleaning)

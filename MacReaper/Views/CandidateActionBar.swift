@@ -10,7 +10,6 @@ struct CandidateActionBar: View {
     let model: ScanModel
     /// The rows the table shows.
     let rows: [CandidateRow]
-    @State private var confirmsDeletion = false
 
     var body: some View {
         let marked = rows.filter(\.isMarked).map(\.claim)
@@ -36,7 +35,7 @@ struct CandidateActionBar: View {
                 if model.offersDeleting {
                     separator
                     QuickAction("Delete Marked…", systemImage: "trash", tint: .red) {
-                        confirmsDeletion = true
+                        model.isConfirmingDeletion = true
                     }
                     .disabled(!model.canDelete(marked))
                 }
@@ -51,7 +50,7 @@ struct CandidateActionBar: View {
         // A dialog's title is plain text, so the inflection is applied before it gets there.
         .confirmationDialog(
             String(AttributedString(localized: "Delete ^[\(marked.count) candidate](inflect: true) permanently?").characters),
-            isPresented: $confirmsDeletion
+            isPresented: Bindable(model).isConfirmingDeletion
         ) {
             Button("Delete", role: .destructive) {
                 model.delete(marked)
