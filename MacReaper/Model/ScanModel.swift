@@ -156,18 +156,24 @@ final class ScanModel {
 
     // MARK: - Cleanup
 
-    /// Whether the marked candidates can be deleted now. Only candidates found on the real disk
-    /// can, not those of an in-memory file system.
-    var canDelete: Bool {
-        fileSystem is DarwinFileSystem && !isScanning && !isCleaning && !markedCandidates.isEmpty
+    /// Whether the sidebar shows a view that deleting may start from: all candidates, or the
+    /// marked ones. A category shows only part of what is marked.
+    var offersDeleting: Bool {
+        filter == .all || filter == .marked
     }
 
-    /// Deletes the marked candidates, permanently. Those deleted leave the results.
-    func deleteMarked() {
-        guard canDelete else {
+    /// Whether `candidates` can be deleted now. Only candidates found on the real disk can, not
+    /// those of an in-memory file system.
+    func canDelete(_ candidates: [Claim]) -> Bool {
+        fileSystem is DarwinFileSystem && !isScanning && !isCleaning && !candidates.isEmpty
+    }
+
+    /// Deletes `candidates`, permanently. Those deleted leave the results.
+    func delete(_ candidates: [Claim]) {
+        guard canDelete(candidates) else {
             return
         }
-        let cleanup = CleanupSession(candidates: markedCandidates, updateInterval: Self.updateInterval)
+        let cleanup = CleanupSession(candidates: candidates, updateInterval: Self.updateInterval)
         self.cleanup = cleanup
         let session = session
         Task {

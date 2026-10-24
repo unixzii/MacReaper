@@ -3,23 +3,23 @@ import ReaperRules
 import SwiftUI
 import System
 
-/// Below the table: marking for the rows shown, what the marked candidates add up to, and
-/// deleting them.
+/// Below the table: marking for the rows shown, what the marked ones among them add up to, and
+/// deleting those, where the sidebar shows all candidates or the marked ones.
 struct CandidateActionBar: View {
 
     let model: ScanModel
     @State private var confirmsDeletion = false
 
     var body: some View {
-        let shown = model.rows.map(\.id)
-        let marked = model.markedCandidates
+        let rows = model.rows
+        let marked = rows.filter(\.isMarked).map(\.claim)
         let size = model.totalSize(of: marked)
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 12) {
-                marking(shown)
+                marking(rows.map(\.id))
                 Spacer()
-                Text("\(marked.count) of \(model.candidates.count) marked")
+                Text("\(marked.count) of \(rows.count) marked")
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 if let size {
@@ -27,20 +27,20 @@ struct CandidateActionBar: View {
                         .bold()
                         .monospacedDigit()
                         .help(size.mayFreeLess
-                            ? "The space the marked candidates take up. Some of their files share space with other files, so deleting them may free less."
-                            : "The space the marked candidates take up, which deleting them frees.")
+                            ? "The space the marked candidates shown take up. Some of their files share space with other files, so deleting them may free less."
+                            : "The space the marked candidates shown take up, which deleting them frees.")
                 } else {
                     Text(model.isScanning ? "Measuring…" : "Not measured")
                         .foregroundStyle(.secondary)
                 }
-                Button("Delete…", role: .destructive) {
-                    confirmsDeletion = true
+                if model.offersDeleting {
+                    deleteButton
+                        .disabled(!model.canDelete(marked))
+                        .help("Delete the marked candidates shown, permanently")
                 }
-                .disabled(!model.canDelete)
-                .help("Delete the marked candidates permanently")
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .frame(height: 40)
         }
         .background(.bar)
         // A dialog's title is plain text, so the inflection is applied before it gets there.
@@ -48,19 +48,32 @@ struct CandidateActionBar: View {
             String(AttributedString(localized: "Delete ^[\(marked.count) candidate](inflect: true) permanently?").characters),
             isPresented: $confirmsDeletion
         ) {
-            Button("Delete", role: .destructive, action: model.deleteMarked)
+            Button("Delete", role: .destructive) {
+                model.delete(marked)
+            }
         } message: {
             Text(Self.warning(marked, size: size))
         }
         .dialogSeverity(.critical)
     }
 
+    private var deleteButton: some View {
+        Button("Delete…", role: .destructive) {
+            confirmsDeletion = true
+        }
+        .buttonStyle(.bordered)
+        .tint(.red)
+    }
+
     private func marking(_ shown: [FilePath]) -> some View {
         HStack(spacing: 12) {
-            Button("Mark All", systemImage: "checkmark.circle") {
-                model.setMarked(true, shown)
+            // Everything the Marked view shows is marked already.
+            if model.filter != .marked {
+                Button("Mark All", systemImage: "checkmark.circle") {
+                    model.setMarked(true, shown)
+                }
+                .help("Mark every candidate shown")
             }
-            .help("Mark every candidate shown")
             Button("Unmark All", systemImage: "circle") {
                 model.setMarked(false, shown)
             }
