@@ -9,13 +9,26 @@ struct ContentView: View {
 
     @Bindable var model: ScanModel
     @SceneStorage("showsInspector") private var showsInspector = true
+    /// The width of the area between the sidebar and the inspector, which the toolbar above it
+    /// shares out.
+    @State private var detailWidth: CGFloat = 0
+
+    private static let sidebarMinWidth: CGFloat = 200
+    /// Wide enough for the table's columns and the bar below it.
+    private static let detailMinWidth: CGFloat = 520
+    private static let inspectorMinWidth: CGFloat = 260
+    /// What the split view takes beyond its columns' minimums, for dividers and the sidebar's
+    /// inset. Measured: with less, the sidebar's leading edge is cut off.
+    private static let splitAllowance: CGFloat = 40
 
     var body: some View {
         NavigationSplitView {
             CandidateSidebar(model: model)
-                .navigationSplitViewColumnWidth(min: 200, ideal: 250)
+                .navigationSplitViewColumnWidth(min: Self.sidebarMinWidth, ideal: 250)
         } detail: {
             detail
+                .navigationSplitViewColumnWidth(min: Self.detailMinWidth, ideal: 640)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { detailWidth = $0 }
         }
         // In the sidebar: a toolbar field would sit at the toolbar's trailing end, which belongs
         // to the inspector.
@@ -24,7 +37,7 @@ struct ContentView: View {
         // its own part of the toolbar, as in Xcode.
         .inspector(isPresented: $showsInspector) {
             CandidateInspector(model: model)
-                .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
+                .inspectorColumnWidth(min: Self.inspectorMinWidth, ideal: 300, max: 420)
                 .toolbar {
                     Spacer()
                     Button("Inspector", systemImage: "sidebar.trailing") {
@@ -33,6 +46,12 @@ struct ContentView: View {
                     .help("Hide the inspector")
                 }
         }
+        // The window can't get narrower than its columns: SwiftUI clips the sidebar and
+        // inspector rather than stop a window from shrinking past them.
+        .frame(
+            minWidth: Self.sidebarMinWidth + Self.detailMinWidth + (showsInspector ? Self.inspectorMinWidth : 0) + Self.splitAllowance,
+            minHeight: 440
+        )
         .navigationTitle("MacReaper")
         // The location menu says what is being scanned, and the activity view takes the middle.
         .toolbar(removing: .title)
@@ -42,7 +61,9 @@ struct ContentView: View {
                     .disabled(model.isScanning || model.isCleaning)
             }
             ToolbarItem(placement: .principal) {
-                ScanActivity(model: model)
+                // As wide as the location menu and the scan button leave room for: a toolbar
+                // item too wide for its place is moved into an overflow menu.
+                ScanActivity(model: model, width: min(420, max(260, detailWidth - 220)))
             }
             ToolbarItem(placement: .primaryAction) {
                 if model.isScanning || model.isCleaning {

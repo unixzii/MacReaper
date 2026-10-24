@@ -17,29 +17,33 @@ struct CandidateActionBar: View {
         let size = model.totalSize(of: marked)
         VStack(spacing: 0) {
             Divider()
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 marking(rows.map(\.id))
-                Spacer()
+                Spacer(minLength: 0)
                 Text("\(marked.count) of \(rows.count) marked")
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                    .fixedSize()
+                separator
                 if let size {
                     Text(size.formatted)
-                        .bold()
-                        .monospacedDigit()
+                        .fixedSize()
                         .help(size.mayFreeLess
                             ? "The space the marked candidates shown take up. Some of their files share space with other files, so deleting them may free less."
                             : "The space the marked candidates shown take up, which deleting them frees.")
                 } else {
                     Text(model.isScanning ? "Measuring…" : "Not measured")
-                        .foregroundStyle(.secondary)
+                        .fixedSize()
                 }
                 if model.offersDeleting {
-                    deleteButton
-                        .disabled(!model.canDelete(marked))
-                        .help("Delete the marked candidates shown, permanently")
+                    separator
+                    QuickAction("Delete Marked…", systemImage: "trash", tint: .red) {
+                        confirmsDeletion = true
+                    }
+                    .disabled(!model.canDelete(marked))
                 }
             }
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+            .lineLimit(1)
             .padding(.horizontal, 12)
             .frame(height: 40)
         }
@@ -58,33 +62,28 @@ struct CandidateActionBar: View {
         .dialogSeverity(.critical)
     }
 
-    private var deleteButton: some View {
-        Button("Delete…", role: .destructive) {
-            confirmsDeletion = true
-        }
-        .buttonStyle(.bordered)
-        .tint(.red)
+    private var separator: some View {
+        Divider()
+            .frame(height: 16)
     }
 
+    /// Marking for the rows shown, as icon buttons named in their tooltips, like the buttons
+    /// in Xcode's debug bar.
     private func marking(_ shown: [FilePath]) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 2) {
             // Everything the Marked view shows is marked already.
             if model.filter != .marked {
-                Button("Mark All", systemImage: "checkmark.circle") {
+                QuickAction("Mark All", systemImage: "checklist.checked") {
                     model.setMarked(true, shown)
                 }
-                .help("Mark every candidate shown")
             }
-            Button("Unmark All", systemImage: "circle") {
+            QuickAction("Unmark All", systemImage: "checklist.unchecked") {
                 model.setMarked(false, shown)
             }
-            .help("Unmark every candidate shown")
-            Button("Suggested", systemImage: "arrow.uturn.backward") {
+            QuickAction("Mark Suggested", systemImage: "wand.and.stars") {
                 model.restoreSuggestedMarks(shown)
             }
-            .help("Mark the candidates shown as suggested: the safe ones")
         }
-        .buttonStyle(.borderless)
         .disabled(shown.isEmpty)
     }
 
@@ -106,5 +105,68 @@ struct CandidateActionBar: View {
         }
         paragraphs.append(AttributedString(localized: "They don’t go to the Trash, and this can’t be undone."))
         return paragraphs.dropFirst().reduce(paragraphs[0]) { $0 + "\n\n" + $1 }
+    }
+}
+
+/// An icon button, named in its tooltip and to accessibility.
+private struct QuickAction: View {
+
+    let title: LocalizedStringKey
+    let systemImage: String
+    /// The icon's color while enabled; secondary when `nil`.
+    let tint: Color?
+    let action: () -> Void
+
+    init(_ title: LocalizedStringKey, systemImage: String, tint: Color? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        self.tint = tint
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .labelStyle(.iconOnly)
+                .font(.system(size: 14))
+                .frame(width: 26, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(QuickActionStyle(tint: tint))
+        .help(title)
+    }
+}
+
+/// Like the icon buttons in Xcode's toolbars: no bezel, and a stronger color while pressed, darker
+/// in light mode and lighter in dark mode.
+private struct QuickActionStyle: ButtonStyle {
+
+    let tint: Color?
+
+    func makeBody(configuration: Configuration) -> some View {
+        Appearance(configuration: configuration, tint: tint)
+    }
+
+    private struct Appearance: View {
+
+        let configuration: Configuration
+        let tint: Color?
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(foreground)
+        }
+
+        private var foreground: AnyShapeStyle {
+            if !isEnabled {
+                return AnyShapeStyle(.tertiary)
+            }
+            if let tint {
+                // Mixed toward the text color, which is black in light mode and white in dark.
+                return AnyShapeStyle(configuration.isPressed ? tint.mix(with: .primary, by: 0.35) : tint)
+            }
+            return configuration.isPressed ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)
+        }
     }
 }

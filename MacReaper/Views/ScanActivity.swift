@@ -9,6 +9,8 @@ import System
 struct ScanActivity: View {
 
     let model: ScanModel
+    /// Set by the window, never by what the view says, so nothing shifts while a scan runs.
+    let width: CGFloat
     @State private var showsErrors = false
 
     var body: some View {
@@ -21,7 +23,7 @@ struct ScanActivity: View {
         }
         .font(.callout)
         .padding(.horizontal, 10)
-        .frame(width: 420, height: 28)
+        .frame(width: width, height: 28)
     }
 
     @ViewBuilder

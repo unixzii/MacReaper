@@ -20,7 +20,6 @@ struct MacReaperApp: App {
     var body: some Scene {
         Window("MacReaper", id: "main") {
             ContentView(model: model)
-                .frame(minWidth: 820, minHeight: 440)
         }
         .commands {
             CommandMenu("Scan") {
