@@ -30,6 +30,38 @@ nonisolated struct CandidateRow: Identifiable {
     }
 }
 
+/// The column the table is sorted by, and which way.
+nonisolated struct CandidateSort: Equatable {
+
+    enum Column: String {
+        case name
+        case size
+        case category
+        case modified
+    }
+
+    var column: Column
+    var ascending: Bool
+
+    /// Rows that tie on the column keep the order of their paths, so the order is stable.
+    func areInIncreasingOrder(_ lhs: CandidateRow, _ rhs: CandidateRow) -> Bool {
+        let order: ComparisonResult = switch column {
+        case .name: lhs.name.localizedStandardCompare(rhs.name)
+        case .size: Self.compare(lhs.bytes, rhs.bytes)
+        case .category: lhs.categoryTitle.localizedStandardCompare(rhs.categoryTitle)
+        case .modified: Self.compare(lhs.modified, rhs.modified)
+        }
+        if order == .orderedSame {
+            return lhs.claim.path.string < rhs.claim.path.string
+        }
+        return (order == .orderedAscending) == ascending
+    }
+
+    private static func compare<T: Comparable>(_ lhs: T, _ rhs: T) -> ComparisonResult {
+        lhs < rhs ? .orderedAscending : lhs > rhs ? .orderedDescending : .orderedSame
+    }
+}
+
 extension CandidateSize {
 
     /// The allocated size, after "<" when deleting may free less because other files share

@@ -62,13 +62,7 @@ struct ContentView: View {
     @ViewBuilder
     private var detail: some View {
         if let session = model.session {
-            CandidateTable(model: model)
-                .overlay {
-                    EmptyResultsView(model: model, session: session)
-                }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    CandidateActionBar(model: model)
-                }
+            CandidateList(model: model, session: session)
         } else {
             ReadyView(model: model)
         }
@@ -146,15 +140,36 @@ private struct ReadyView: View {
     }
 }
 
-/// Shown over the table when it has no rows.
-private struct EmptyResultsView: View {
+/// The table, a message over it when it is empty, and the bar below it. The rows are worked out
+/// once here: filtering, labelling and sorting every candidate is the costly part of an update.
+private struct CandidateList: View {
 
     let model: ScanModel
     let session: ScanSession
 
     var body: some View {
+        let rows = model.rows
+        CandidateTable(model: model, rows: rows)
+            .overlay {
+                EmptyResultsView(model: model, session: session, isEmpty: rows.isEmpty)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                CandidateActionBar(model: model, rows: rows)
+            }
+    }
+}
+
+/// Shown over the table when it has no rows.
+private struct EmptyResultsView: View {
+
+    let model: ScanModel
+    let session: ScanSession
+    /// Whether the table has no rows.
+    let isEmpty: Bool
+
+    var body: some View {
         if !model.candidates.isEmpty {
-            if model.rows.isEmpty {
+            if isEmpty {
                 if model.searchText.isEmpty {
                     ContentUnavailableView("No Candidates", systemImage: "line.3.horizontal.decrease", description: Text("Nothing here matches the sidebar selection."))
                 } else {

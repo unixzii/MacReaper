@@ -68,7 +68,7 @@ final class ScanModel {
     var filter = CandidateFilter.all
     var searchText = ""
     var selection: Set<FilePath> = []
-    var sortOrder = [KeyPathComparator(\CandidateRow.bytes, order: .reverse)]
+    var sort = CandidateSort(column: .size, ascending: false)
     /// Marks the user changed. Every other candidate is marked if its category is preselected.
     private var markOverrides: [FilePath: Bool] = [:]
 
@@ -224,7 +224,7 @@ final class ScanModel {
                     location: displayPath(candidate.path.removingLastComponent())
                 )
             }
-            .sorted(using: sortOrder)
+            .sorted(by: sort.areInIncreasingOrder)
     }
 
     /// Every category with candidates, largest first.

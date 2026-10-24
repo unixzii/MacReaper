@@ -8,10 +8,11 @@ import System
 struct CandidateActionBar: View {
 
     let model: ScanModel
+    /// The rows the table shows.
+    let rows: [CandidateRow]
     @State private var confirmsDeletion = false
 
     var body: some View {
-        let rows = model.rows
         let marked = rows.filter(\.isMarked).map(\.claim)
         let size = model.totalSize(of: marked)
         VStack(spacing: 0) {
