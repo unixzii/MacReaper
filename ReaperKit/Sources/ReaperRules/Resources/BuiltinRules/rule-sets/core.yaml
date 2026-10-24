@@ -59,6 +59,52 @@ rules:
     action:
       skip: true
 
+  # Spotlight's index, the FSEvents log, the version store and the like sit at the top of
+  # every volume, belong to the system, and mostly can't be read.
+  - id: core.skip-volume-metadata
+    description: Never walk into a volume's own bookkeeping folders.
+    when:
+      name:
+        - .Spotlight-V100
+        - .fseventsd
+        - .DocumentRevisions-V100
+        - .TemporaryItems
+        - .PreviousSystemInformation
+        - .MobileBackups
+        - .Trashes
+    action:
+      skip: true
+
+  # Walking the data volume from its mount point spells these under /System/Volumes/Data;
+  # a folder chosen under / reaches them through firmlinks, so both spellings are listed.
+  - id: core.skip-system-data
+    description: Never walk into the parts of the data volume that belong to macOS.
+    when:
+      path:
+        - /System/Volumes/Data/System
+        - /System/Volumes/Data/private/var/db
+        - /System/Volumes/Data/private/var/containers
+        - /private/var/db
+        - /private/var/containers
+    action:
+      skip: true
+
+  # Deleting inside them breaks installed tools: Homebrew's lib/node_modules holds global
+  # npm packages, and its Cellar holds the virtual environments Python tools run from.
+  # The package managers clean up after themselves (brew cleanup, port reclaim).
+  - id: core.skip-package-managers
+    description: Never walk into software Homebrew or MacPorts installed.
+    when:
+      path:
+        - /opt/homebrew
+        - /usr/local
+        - /opt/local
+        - /System/Volumes/Data/opt/homebrew
+        - /System/Volumes/Data/usr/local
+        - /System/Volumes/Data/opt/local
+    action:
+      skip: true
+
   # https://bford.info/cachedir/ — Cargo, pytest, mypy, ruff and others write this.
   # Fallback, so a more specific rule (e.g. rust.target) decides the category when it matches.
   - id: core.cachedir-tag

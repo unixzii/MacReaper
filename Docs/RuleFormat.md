@@ -255,8 +255,8 @@ at depth *d* proceeds in this order:
 
 1. If *E* is a symlink, it is not visited. Symlinks are never followed.
 2. If *E* is on a different volume than the root, it is not visited.
-3. If *E* is a directory whose listing fails, a scan error is recorded and *E* is
-   not visited further.
+3. If *E* is a directory whose listing fails, *E* is not visited further. A scan
+   error is recorded unless a `skip` rule holds for *E* without its listing.
 4. Candidate rules for *E* are taken from the index. Rules whose `kind` differs
    from *E*'s are not evaluated. The rest are tried in this order, ties going to the
    rule whose qualified id sorts first:

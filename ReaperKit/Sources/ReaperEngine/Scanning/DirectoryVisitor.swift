@@ -114,7 +114,14 @@ struct DirectoryVisitor: Sendable {
         do {
             children = try fileSystem.listDirectory(at: item.path, options: listingOptions)
         } catch {
-            accumulator.errors.append(ScanError(path: item.path, error: error))
+            // A directory a rule skips is not an error, even when it can't be read: rules on
+            // names and paths hold without a listing.
+            let unlisted = EntryContext(path: item.path, attributes: attributes, depth: depth, children: nil, siblings: siblings, scopes: inherited)
+            if case .skip = evaluator.evaluate(unlisted) {
+                accumulator.stats.skipped += 1
+            } else {
+                accumulator.errors.append(ScanError(path: item.path, error: error))
+            }
             return ([], [])
         }
         accumulator.errors += children.failures.map { ScanError(path: item.path.appending($0.name), error: $0.error) }

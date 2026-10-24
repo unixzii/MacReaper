@@ -1,6 +1,7 @@
 import ReaperEngine
 import ReaperFSTesting
 import ReaperRules
+import System
 import Testing
 
 /// The shipped rules, evaluated entry by entry on a small in-memory home folder.
@@ -57,6 +58,38 @@ struct ShippedRulesTests {
         #expect(harness.name(claim.category) == "core.cachedir-tagged")
         #expect(claim.safety == .review)
         #expect(!claim.isPreselected)
+    }
+
+    @Test("On the data volume, system folders and installed software are skipped, however a path spells them", arguments: [
+        "/System/Volumes/Data",
+        "/opt",
+    ])
+    func dataVolumeSkips(root: String) async throws {
+        let tree = Tree {
+            File("opt/homebrew/lib/package.json")
+            Directory("opt/homebrew/lib/node_modules/npm")
+            File("opt/local/share/package.json")
+            Directory("opt/local/share/node_modules/x")
+            File("private/var/db/thing/package.json")
+            Directory("private/var/db/thing/node_modules/x")
+            File(".Spotlight-V100/Store/package.json")
+            Directory(".Spotlight-V100/Store/node_modules/x")
+            // Skipped, so not an error, although it can't be listed.
+            Directory(".fseventsd", failure: .permissionDenied) {}
+            File("Users/test/Developer/webapp/package.json")
+            Directory("Users/test/Developer/webapp/node_modules/left-pad")
+        }
+        let data = "/System/Volumes/Data"
+        let mounted = root == data
+        let fileSystem = InMemoryFileSystem(root: FilePath(mounted ? data : "/"), tree: tree)
+        let rules = CompiledRules(try RuleLoader.load(RuleSources.builtin()), home: (mounted ? data : "") + "/Users/test")
+
+        let result = try await DiskScanner(rules: rules, root: FilePath(root), fileSystem: fileSystem, now: Harness.now).scan()
+
+        let expected = mounted ? [data + "/Users/test/Developer/webapp/node_modules"] : []
+        #expect(result.candidates.map(\.path.string) == expected)
+        #expect(result.errors.isEmpty)
+        #expect(result.stats.skipped == (mounted ? 5 : 2))
     }
 
     @Test("Skips", arguments: [
