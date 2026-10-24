@@ -75,6 +75,7 @@ struct ContentView: View {
             CandidateList(model: model, session: session)
         } else {
             ReadyView(model: model)
+                .frame(maxWidth: .greatestFiniteMagnitude)
         }
     }
 }
