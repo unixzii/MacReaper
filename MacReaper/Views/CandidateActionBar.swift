@@ -19,25 +19,11 @@ struct CandidateActionBar: View {
             HStack(spacing: 10) {
                 marking(rows.map(\.id))
                 Spacer(minLength: 0)
-                Text("\(marked.count) of \(rows.count) marked")
-                    .fixedSize()
-                separator
-                if let size {
-                    Text(size.formatted)
-                        .fixedSize()
-                        .help(size.mayFreeLess
-                            ? "The space the marked candidates shown take up. Some of their files share space with other files, so deleting them may free less."
-                            : "The space the marked candidates shown take up, which deleting them frees.")
-                } else {
-                    Text(model.isScanning ? "Measuring…" : "Not measured")
-                        .fixedSize()
-                }
-                if model.offersDeleting {
-                    separator
-                    QuickAction("Delete Marked…", systemImage: "trash", tint: .red) {
-                        model.isConfirmingDeletion = true
-                    }
-                    .disabled(!model.canDelete(marked))
+                // In a narrow window the marked count goes first, then the size; deleting stays.
+                ViewThatFits(in: .horizontal) {
+                    summary(marked, size: size, showsCount: true, showsSize: true)
+                    summary(marked, size: size, showsCount: false, showsSize: true)
+                    summary(marked, size: size, showsCount: false, showsSize: false)
                 }
             }
             .foregroundStyle(.secondary)
@@ -59,6 +45,39 @@ struct CandidateActionBar: View {
             Text(Self.warning(marked, size: size))
         }
         .dialogSeverity(.critical)
+    }
+
+    /// What the marked candidates shown add up to, and deleting them, divided.
+    @ViewBuilder
+    private func summary(_ marked: [Claim], size: CandidateSize?, showsCount: Bool, showsSize: Bool) -> some View {
+        HStack(spacing: 10) {
+            if showsCount {
+                Text("\(marked.count) of \(rows.count) marked")
+            }
+            if showsCount, showsSize {
+                separator
+            }
+            if showsSize {
+                if let size {
+                    Text(size.formatted)
+                        .help(size.mayFreeLess
+                            ? "The space the marked candidates shown take up. Some of their files share space with other files, so deleting them may free less."
+                            : "The space the marked candidates shown take up, which deleting them frees.")
+                } else {
+                    Text(model.isScanning ? "Measuring…" : "Not measured")
+                }
+            }
+            if model.offersDeleting {
+                if showsCount || showsSize {
+                    separator
+                }
+                QuickAction("Delete Marked…", systemImage: "trash", tint: .red) {
+                    model.isConfirmingDeletion = true
+                }
+                .disabled(!model.canDelete(marked))
+            }
+        }
+        .fixedSize()
     }
 
     private var separator: some View {

@@ -48,6 +48,12 @@ private struct CandidateTableView: NSViewRepresentable {
         context.coordinator.scrollView
     }
 
+    /// Whatever it is offered: the table scrolls sideways when its columns don't fit, so its
+    /// columns must not become a minimum width for the window's middle.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 400, height: proposal.height ?? 300)
+    }
+
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.update(rows: rows, selection: selection, sort: sort, list: list, showsCategory: showsCategory, isMeasuring: isMeasuring)
     }
@@ -124,6 +130,7 @@ final class CandidateTableController: NSObject, NSTableViewDataSource, NSTableVi
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
         scrollView.automaticallyAdjustsContentInsets = true
