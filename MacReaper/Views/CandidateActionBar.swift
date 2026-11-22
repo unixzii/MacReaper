@@ -4,7 +4,7 @@ import SwiftUI
 import System
 
 /// Below the table: marking for the rows shown, what the marked ones among them add up to, and
-/// deleting those, where the sidebar shows all candidates or the marked ones.
+/// deleting those. It also asks to confirm every deletion the window starts.
 struct CandidateActionBar: View {
 
     let model: ScanModel
@@ -35,14 +35,18 @@ struct CandidateActionBar: View {
         .background(.bar)
         // A dialog's title is plain text, so the inflection is applied before it gets there.
         .confirmationDialog(
-            String(AttributedString(localized: "Delete ^[\(marked.count) candidate](inflect: true) permanently?").characters),
-            isPresented: Bindable(model).isConfirmingDeletion
-        ) {
+            String(AttributedString(localized: "Delete ^[\(model.pendingDeletion?.count ?? 0) candidate](inflect: true) permanently?").characters),
+            isPresented: Binding(
+                get: { model.pendingDeletion != nil },
+                set: { if !$0 { model.cancelDeletion() } }
+            ),
+            presenting: model.pendingDeletion
+        ) { pending in
             Button("Delete", role: .destructive) {
-                model.delete(marked)
+                model.delete(pending)
             }
-        } message: {
-            Text(Self.warning(marked, size: size))
+        } message: { pending in
+            Text(Self.warning(pending, size: model.totalSize(of: pending)))
         }
         .dialogSeverity(.critical)
     }
@@ -67,15 +71,13 @@ struct CandidateActionBar: View {
                     Text(model.isScanning ? "Measuring…" : "Not measured")
                 }
             }
-            if model.offersDeleting {
-                if showsCount || showsSize {
-                    separator
-                }
-                QuickAction("Delete Marked…", systemImage: "trash", tint: .red) {
-                    model.isConfirmingDeletion = true
-                }
-                .disabled(!model.canDelete(marked))
+            if showsCount || showsSize {
+                separator
             }
+            QuickAction("Delete Marked…", systemImage: "trash", tint: .red) {
+                model.requestDeletion(marked)
+            }
+            .disabled(!model.canDelete(marked))
         }
         .fixedSize()
     }
