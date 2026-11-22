@@ -115,6 +115,8 @@ final class CandidateTableController: NSObject, NSTableViewDataSource, NSTableVi
         tableView.onSpace = { [weak self] in self?.toggleSelectedMarks() }
         let menu = NSMenu()
         menu.delegate = self
+        // Delete… is disabled, not hidden, while a scan or cleanup runs.
+        menu.autoenablesItems = false
         tableView.menu = menu
 
         addColumn(ColumnID.marked, title: "", width: 20, sortable: false)
@@ -317,14 +319,21 @@ final class CandidateTableController: NSObject, NSTableViewDataSource, NSTableVi
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(paths.map(\.string).sorted().joined(separator: "\n"), forType: .string)
         }
+        // The rows clicked or selected, marked or not, after the same confirmation as the bottom bar's.
+        let claims = targets.map(\.claim)
+        menu.addItem(.separator())
+        addMenuItem(to: menu, String(localized: "Delete…")) { [model] in model.requestDeletion(claims) }
+            .isEnabled = model.canDelete(claims)
     }
 
-    private func addMenuItem(to menu: NSMenu, _ title: String, action: @escaping () -> Void) {
+    @discardableResult
+    private func addMenuItem(to menu: NSMenu, _ title: String, action: @escaping () -> Void) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: #selector(runMenuAction(_:)), keyEquivalent: "")
         item.target = self
         item.tag = menuActions.count
         menuActions.append(action)
         menu.addItem(item)
+        return item
     }
 
     @objc private func runMenuAction(_ sender: NSMenuItem) {

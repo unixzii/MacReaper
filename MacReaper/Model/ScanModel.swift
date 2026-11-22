@@ -156,19 +156,29 @@ final class ScanModel {
 
     // MARK: - Cleanup
 
-    /// Whether the sidebar shows a view that deleting may start from: all candidates, or the
-    /// marked ones. A category shows only part of what is marked.
-    var offersDeleting: Bool {
-        filter == .all || filter == .marked
+    /// The candidates the window asks to confirm deleting, until the user answers. Set by the
+    /// bottom bar's button, the menu command, and the table's context menu.
+    private(set) var pendingDeletion: [Claim]?
+
+    /// Asks to confirm deleting `candidates`, if they can be deleted now.
+    func requestDeletion(_ candidates: [Claim]) {
+        if canDelete(candidates) {
+            pendingDeletion = candidates
+        }
     }
 
-    /// Whether the window asks to confirm deleting the marked candidates shown. Set by the
-    /// bottom bar's button and by the menu command.
-    var isConfirmingDeletion = false
+    func cancelDeletion() {
+        pendingDeletion = nil
+    }
+
+    /// The marked candidates the table shows: what the bottom bar and the menu command delete.
+    var markedShown: [Claim] {
+        candidates.filter { isMarked($0) && isShown($0) }
+    }
 
     /// Whether the marked candidates shown could be deleted now, without working out the rows.
     var canDeleteMarkedShown: Bool {
-        offersDeleting && canStartCleanup && candidates.contains { isMarked($0) && isShown($0) }
+        canStartCleanup && candidates.contains { isMarked($0) && isShown($0) }
     }
 
     /// Whether `candidates` can be deleted now. Only candidates found on the real disk can, not
@@ -183,6 +193,7 @@ final class ScanModel {
 
     /// Deletes `candidates`, permanently. Those deleted leave the results.
     func delete(_ candidates: [Claim]) {
+        pendingDeletion = nil
         guard canDelete(candidates) else {
             return
         }
