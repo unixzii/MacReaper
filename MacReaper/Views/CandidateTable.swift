@@ -115,7 +115,7 @@ final class CandidateTableController: NSObject, NSTableViewDataSource, NSTableVi
         tableView.onSpace = { [weak self] in self?.toggleSelectedMarks() }
         let menu = NSMenu()
         menu.delegate = self
-        // Delete… is disabled, not hidden, while a scan or cleanup runs.
+        // Trash… is disabled, not hidden, while a scan or cleanup runs.
         menu.autoenablesItems = false
         tableView.menu = menu
 
@@ -319,10 +319,11 @@ final class CandidateTableController: NSObject, NSTableViewDataSource, NSTableVi
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(paths.map(\.string).sorted().joined(separator: "\n"), forType: .string)
         }
-        // The rows clicked or selected, marked or not, after the same confirmation as the bottom bar's.
+        // The rows clicked or selected, marked or not, after the same confirmation as the bottom
+        // bar's. Named for the bottom bar's trash button; deleting is still permanent.
         let claims = targets.map(\.claim)
         menu.addItem(.separator())
-        addMenuItem(to: menu, String(localized: "Delete…")) { [model] in model.requestDeletion(claims) }
+        addMenuItem(to: menu, String(localized: "Trash…")) { [model] in model.requestDeletion(claims) }
             .isEnabled = model.canDelete(claims)
     }
 
